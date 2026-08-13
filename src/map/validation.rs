@@ -1,7 +1,8 @@
-use serde_json::error::Category;
-
 use super::{MapBlockEntry, MapBlockOption, MapDocument};
-use crate::block::{BlockAssetConfig, BlockCategory};
+use crate::{
+    block::{BlockAssetConfig, BlockCategory},
+    domain::CardinalDirection,
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     error::Error,
@@ -18,6 +19,13 @@ const STAR_ID: &str = "star";
 const EMPTY_STAR_ID: &str = "star_empty";
 const JUMP_STAR_ID: &str = "star_jump";
 const STAR_SWITCH_ID: &str = "wb_star_sw";
+
+const NULL_POSITION: (i32, i32) = (-1, -1);
+
+const TELEPORT_1_OUT_ID: &str = "fb_tp1_out";
+const TELEPORT_2_OUT_ID: &str = "fb_tp2_out";
+const PORTAL_1_ID: &str = "fb_portal1";
+const PORTAL_2_ID: &str = "fb_portal2";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapValidationErrors {
@@ -48,6 +56,8 @@ pub fn validate_map_document(
     validate_metadata(document, &mut problems);
 
     let blocks_by_position = validate_blocks(document, config, &mut problems);
+
+    validate_special_block_links(document, &blocks_by_position, &mut problems);
 
     validate_block_options(
         document.block_options.as_deref(),
@@ -170,24 +180,46 @@ fn validate_blocks<'a>(
             ));
         }
 
-        if !(0..=3).contains(&entry.block.dir) {
-            problems.push(format!(
-                "block {block_name} at ({}, {}) has invalid direction {}",
-                entry.x, entry.y, entry.block.dir
-            ));
+        match CardinalDirection::try_from(entry.block.dir) {
+            Ok(direction) => {
+                let is_rotatable = config
+                    .block_rotatable
+                    .iter()
+                    .any(|block_id| block_id.as_str() == block_name);
+
+                if direction != CardinalDirection::Up && !is_rotatable {
+                    problems.push(format!(
+                        "non-rotatable block {block_name} has direction {}",
+                        entry.block.dir
+                    ));
+                }
+            }
+            Err(error) => {
+                problems.push(format!(
+                    "block {block_name} at ({}, {}) has invalid direction: {error}",
+                    entry.x, entry.y
+                ));
+            }
         }
 
-        let is_rotatable = config
-            .block_rotatable
-            .iter()
-            .any(|block_id| block_id.as_str() == block_name);
+        // if !(0..=3).contains(&entry.block.dir) {
+        //     problems.push(format!(
+        //         "block {block_name} at ({}, {}) has invalid direction {}",
+        //         entry.x, entry.y, entry.block.dir
+        //     ));
+        // }
 
-        if entry.block.dir != 0 && !is_rotatable {
-            problems.push(format!(
-                "non-rotatable block {block_name} has direction {}",
-                entry.block.dir
-            ));
-        }
+        // let is_rotatable = config
+        //     .block_rotatable
+        //     .iter()
+        //     .any(|block_id| block_id.as_str() == block_name);
+
+        // if entry.block.dir != 0 && !is_rotatable {
+        //     problems.push(format!(
+        //         "non-rotatable block {block_name} has direction {}",
+        //         entry.block.dir
+        //     ));
+        // }
 
         match block_name {
             BALL_ID => {
@@ -334,6 +366,173 @@ fn validate_option_values(
             ));
         }
     }
+}
+
+fn validate_special_block_links(
+    document: &MapDocument,
+    blocks_by_position: &BTreeMap<(i32, i32), &MapBlockEntry>,
+    problems: &mut Vec<String>,
+) {
+    let settings = &document.map_settings;
+
+    validate_teleport_exit(
+        "tp1_exit",
+        (settings.tp1_exit.x, settings.tp1_exit.y),
+        TELEPORT_1_OUT_ID,
+        blocks_by_position,
+        problems,
+    );
+
+    validate_teleport_exit(
+        "tp2_exit",
+        (settings.tp2_exit.x, settings.tp2_exit.y),
+        TELEPORT_2_OUT_ID,
+        blocks_by_position,
+        problems,
+    );
+
+    validate_portal_positions(
+        "portal1_positions",
+        PORTAL_1_ID,
+        (
+            settings.portal1_positions.a_px,
+            settings.portal1_positions.a_py,
+        ),
+        (
+            settings.portal1_positions.b_px,
+            settings.portal1_positions.b_py,
+        ),
+        blocks_by_position,
+        problems,
+    );
+
+    validate_portal_positions(
+        "portal2_positions",
+        PORTAL_2_ID,
+        (
+            settings.portal2_positions.a_px,
+            settings.portal2_positions.a_py,
+        ),
+        (
+            settings.portal2_positions.b_px,
+            settings.portal2_positions.b_py,
+        ),
+        blocks_by_position,
+        problems,
+    );
+}
+
+fn validate_teleport_exit(
+    settings_name: &str,
+    configured_position: (i32, i32),
+    exit_block_id: &str,
+    blocks_by_position: &BTreeMap<(i32, i32), &MapBlockEntry>,
+    problems: &mut Vec<String>,
+) {
+    let actual_positions = positions_of(blocks_by_position, exit_block_id);
+
+    if actual_positions.len() > 1 {
+        problems.push(format!(
+            "map contains {} {exit_block_id} blocks; expected at most one",
+            actual_positions.len()
+        ));
+    }
+
+    if configured_position == NULL_POSITION {
+        if !actual_positions.is_empty() {
+            problems.push(format!(
+                "{settings_name} is unset, but {exit_block_id} exists at {actual_positions:?}"
+            ));
+        }
+
+        return;
+    }
+
+    match blocks_by_position.get(&configured_position) {
+        Some(entry) if entry.block.name == exit_block_id => {}
+        Some(entry) => {
+            problems.push(format!(
+                "{settings_name} points to {configured_position:?}, which contains {} instead of {exit_block_id}",
+                entry.block.name
+            ));
+        }
+        None => {
+            problems.push(format!(
+                "{settings_name} points to {configured_position:?}, but no {exit_block_id} exists there"
+            ));
+        }
+    }
+
+    for actual_position in actual_positions {
+        if actual_position != configured_position {
+            problems.push(format!(
+                "{exit_block_id} at {actual_position:?} is not referenced by {settings_name}"
+            ));
+        }
+    }
+}
+
+fn validate_portal_positions(
+    settings_name: &str,
+    portal_block_id: &str,
+    a_position: (i32, i32),
+    b_position: (i32, i32),
+    blocks_by_position: &BTreeMap<(i32, i32), &MapBlockEntry>,
+    problems: &mut Vec<String>,
+) {
+    let actual_positions = positions_of(blocks_by_position, portal_block_id);
+
+    if actual_positions.len() > 2 {
+        problems.push(format!(
+            "map contains {} {portal_block_id} blocks; expected at most two",
+            actual_positions.len()
+        ));
+    }
+
+    if a_position != NULL_POSITION && a_position == b_position {
+        problems.push(format!(
+            "{settings_name}.A and {settings_name}.B both point to {a_position:?}"
+        ));
+    }
+
+    for (slot_name, configured_position) in [("A", a_position), ("B", b_position)] {
+        if configured_position == NULL_POSITION {
+            continue;
+        }
+
+        match blocks_by_position.get(&configured_position) {
+            Some(entry) if entry.block.name == portal_block_id => {}
+            Some(entry) => {
+                problems.push(format!(
+                    "{settings_name}.{slot_name} points to {configured_position:?}, which contains {} instead of {portal_block_id}",
+                    entry.block.name
+                ));
+            }
+            None => {
+                problems.push(format!(
+                    "{settings_name}.{slot_name} points to {configured_position:?}, but no {portal_block_id} exists there"
+                ));
+            }
+        }
+    }
+
+    for actual_position in actual_positions {
+        if actual_position != a_position && actual_position != b_position {
+            problems.push(format!(
+                "{portal_block_id} at {actual_position:?} is not listed in {settings_name}"
+            ));
+        }
+    }
+}
+
+fn positions_of(
+    blocks_by_position: &BTreeMap<(i32, i32), &MapBlockEntry>,
+    block_id: &str,
+) -> Vec<(i32, i32)> {
+    blocks_by_position
+        .iter()
+        .filter_map(|(position, entry)| (entry.block.name == block_id).then_some(*position))
+        .collect()
 }
 
 fn configured_category(config: &BlockAssetConfig, block_name: &str) -> Option<BlockCategory> {

@@ -1,6 +1,6 @@
 use bb_fme_bevy::{
     block::BlockAssetConfig,
-    map::{MapDocument, validate_map_document},
+    map::{MapBlock, MapBlockEntry, MapDocument, validate_map_document},
 };
 use serde_json::json;
 
@@ -14,6 +14,27 @@ fn load_config() -> BlockAssetConfig {
 
 fn load_map() -> MapDocument {
     serde_json::from_str(MINIMAL_MAP).expect("map fixture must deserialize")
+}
+
+fn push_block(
+    document: &mut MapDocument,
+    x: i32,
+    y: i32,
+    category: &str,
+    name: &str,
+    direction: i32,
+) {
+    document.blocks.push(MapBlockEntry {
+        x,
+        y,
+        block: MapBlock {
+            r#type: category.to_owned(),
+            name: name.to_owned(),
+            dir: direction,
+            extra: Default::default(),
+        },
+        extra: Default::default(),
+    });
 }
 
 #[test]
@@ -137,5 +158,81 @@ fn validation_checks_option_values() {
             .problems()
             .iter()
             .any(|problem| { problem.contains("outside 0..=15") })
+    );
+}
+
+#[test]
+fn valid_teleport_and_portal_links_pass() {
+    let config = load_config();
+    let mut document = load_map();
+
+    document.map_settings.tp1_exit.x = 6;
+    document.map_settings.tp1_exit.y = 4;
+
+    push_block(&mut document, 6, 4, "funcblock", "fb_tp1_out", 0);
+
+    document.map_settings.portal1_positions.a_px = 10;
+    document.map_settings.portal1_positions.a_py = 4;
+    document.map_settings.portal1_positions.b_px = 15;
+    document.map_settings.portal1_positions.b_py = 8;
+
+    push_block(&mut document, 10, 4, "funcblock", "fb_portal1", 0);
+
+    push_block(&mut document, 15, 8, "funcblock", "fb_portal1", 1);
+
+    validate_map_document(&document, &config).expect("valid special block links must pass");
+}
+
+#[test]
+fn stale_teleport_exit_is_rejected() {
+    let config = load_config();
+    let mut document = load_map();
+
+    document.map_settings.tp1_exit.x = 6;
+    document.map_settings.tp1_exit.y = 4;
+
+    let errors =
+        validate_map_document(&document, &config).expect_err("stale teleport position must fail");
+
+    assert!(
+        errors
+            .problems()
+            .iter()
+            .any(|problem| { problem.contains("but no fb_tp1_out exists there",) })
+    );
+}
+
+#[test]
+fn unlisted_portal_block_is_rejected() {
+    let config = load_config();
+    let mut document = load_map();
+
+    push_block(&mut document, 12, 3, "funcblock", "fb_portal2", 0);
+
+    let errors = validate_map_document(&document, &config).expect_err("unlisted portal must fail");
+
+    assert!(
+        errors
+            .problems()
+            .iter()
+            .any(|problem| { problem.contains("is not listed in portal2_positions",) })
+    );
+}
+
+#[test]
+fn invalid_direction_uses_domain_validation() {
+    let config = load_config();
+    let mut document = load_map();
+
+    document.blocks[0].block.dir = 7;
+
+    let errors =
+        validate_map_document(&document, &config).expect_err("invalid direction must fail");
+
+    assert!(
+        errors
+            .problems()
+            .iter()
+            .any(|problem| { problem.contains("direction index must be in 0..=3",) })
     );
 }
