@@ -1,0 +1,348 @@
+{
+	"blockGroups": {
+		"item": [
+			"ball",
+			"star",
+			"star_empty",
+			"star_jump",
+			"i_dash",
+			"i_jump",
+			"i_on",
+			"i_off",
+			"i_wall",
+			"i_tp",
+			"i_circle",
+			"i_st",
+			"i_clone",
+			"i_swing",
+			"i_ginvert",
+			"i_gdown",
+			"i_gup"
+		],
+		"block": ["b_normal", "b_o", "b_o_half", "b_o_quarter"],
+		"spike": [
+			"s_normal",
+			"s_half",
+			"s_b_normal",
+			"s_b_two",
+			"s_b_o_half",
+			"s_b_o_two"
+		],
+		"funcblock": [
+			"fb_jump",
+			"fb_gd",
+			"fb_ds_jump",
+			"fb_stone",
+			"fb_fr",
+			"fb_st_hv",
+			"fb_st_dg",
+			"fb_ds_st_hv",
+			"fb_ds_st_dg",
+			"fb_clock_d4",
+			"fb_clock_d8",
+			"fb_tp1_in",
+			"fb_tp1_out",
+			"fb_tp2_in",
+			"fb_tp2_out",
+			"fb_portal1",
+			"fb_portal2"
+		],
+		"switch": [
+			"sw_el_on",
+			"sw_el_off",
+			"el",
+			"el_off",
+			"el_b",
+			"el_b_off",
+			"sw_b1_on",
+			"sw_b1_off",
+			"b1",
+			"sw_b2_on",
+			"sw_b2_off",
+			"b2"
+		],
+		"whiteblock": [
+			"wb_ds",
+			"wb_star_sw",
+			"wb_pp",
+			"wb_change",
+			"wb_lift",
+			"wb_tpoint"
+		],
+		"transport": [
+			"tp_pull_a",
+			"tp_pull_o",
+			"tp_push_a",
+			"tp_push_o",
+			"tp_st_a",
+			"tp_st_o",
+			"tp_sticky"
+		],
+		"laser": [
+			"ls_start_blue",
+			"ls_start_red",
+			"ls_mirror_1",
+			"ls_mirror_2",
+			"ls_mirror_3",
+			"ls_mirror_4"
+		],
+		"obstacle": [
+			"ob_jumper",
+			"ob_cannon",
+			"ob_lift",
+			"ob_dart",
+			"ob_gear",
+			"ob_shell_b",
+			"ob_shell_r"
+		]
+	},
+	"blockTypeSettings": {
+		"spike": {
+			"rotatable": true,
+			"colorable": true
+		},
+		"funcblock": {
+			"rotatable": true,
+			"colorable": false
+		},
+		"block": {
+			"rotatable": true,
+			"colorable": true
+		},
+		"item": {
+			"rotatable": false,
+			"colorable": false
+		},
+		"switch": {
+			"rotatable": true,
+			"colorable": false
+		},
+		"whiteblock": {
+			"rotatable": true,
+			"colorable": false
+		},
+		"transport": {
+			"rotatable": true,
+			"colorable": false
+		},
+		"laser": {
+			"rotatable": true,
+			"colorable": false
+		},
+		"obstacle": {
+			"rotatable": true,
+			"colorable": false
+		}
+	},
+	"blockExceptions": [
+		"el_off",
+		"el_b_off",
+		"ob_shell_b",
+		"ob_shell_r",
+		"wb_change_end"
+	],
+	"blockRotatable": [
+		"b_normal",
+		"b_o",
+		"b_o_half",
+		"b_o_quarter",
+		"s_normal",
+		"s_half",
+		"s_b_normal",
+		"s_b_two",
+		"s_b_o_half",
+		"s_b_o_two",
+		"fb_ds_st_dg",
+		"fb_ds_st_hv",
+		"fb_st_dg",
+		"fb_st_hv",
+		"fb_portal1",
+		"fb_portal2",
+		"el_b",
+		"el_b_off",
+		"wb_pp",
+		"tp_pull_a",
+		"tp_pull_o",
+		"tp_push_a",
+		"tp_push_o",
+		"tp_st_a",
+		"tp_st_o",
+		"ls_start_blue",
+		"ls_start_red",
+		"ls_mirror_1",
+		"ls_mirror_2",
+		"ls_mirror_3",
+		"ls_mirror_4",
+		"ob_jumper",
+		"ob_cannon",
+		"ob_gear"
+	],
+	"gearPassableBlocks": [
+		"ball",
+		"star",
+		"star_empty",
+		"star_jump",
+		"i_dash",
+		"i_jump",
+		"i_on",
+		"i_off",
+		"i_wall",
+		"i_tp",
+		"i_circle",
+		"i_st",
+		"i_clone",
+		"i_swing",
+		"i_ginvert",
+		"i_gdown",
+		"i_gup",
+		"el",
+		"wb_star_sw",
+		"wb_pp",
+		"wb_change",
+		"wb_lift",
+		"wb_tpoint",
+		"ob_jumper",
+		"ob_lift",
+		"ob_dart",
+		"ob_gear"
+	],
+	"optionBlocks": [
+		"star",
+		"star_jump",
+		"fb_fr",
+		"wb_lift",
+		"ob_jumper",
+		"ob_cannon",
+		"ob_dart",
+		"ob_gear",
+		"ob_lift"
+	],
+	"blockOptions": {
+		"star": [
+			{
+				"value_name": "Scale",
+				"min": 0.5,
+				"max": 1,
+				"default_value": 1
+			}
+		],
+		"star_jump": [
+			{
+				"value_name": "Scale",
+				"min": 0.5,
+				"max": 1,
+				"default_value": 1
+			}
+		],
+		"fb_fr": [
+			{
+				"value_name": "Delay",
+				"min": 0,
+				"max": 10,
+				"default_value": 0.5
+			},
+			{
+				"value_name": "Interval",
+				"min": 0.3,
+				"max": 10,
+				"default_value": 1
+			}
+		],
+		"wb_lift": [
+			{
+				"value_name": "Speed",
+				"min": 0,
+				"max": 10,
+				"default_value": 3
+			},
+			{
+				"value_name": "Direction",
+				"min": 0,
+				"max": 3,
+				"default_value": 0
+			}
+		],
+		"ob_jumper": [
+			{
+				"value_name": "Delay",
+				"min": 0,
+				"max": 10,
+				"default_value": 0.5
+			},
+			{
+				"value_name": "Interval",
+				"min": 0,
+				"max": 10,
+				"default_value": 2
+			},
+			{
+				"value_name": "Value",
+				"min": 0,
+				"max": 20,
+				"default_value": 12
+			}
+		],
+		"ob_cannon": [
+			{
+				"value_name": "Delay",
+				"min": 0,
+				"max": 10,
+				"default_value": 0.5
+			},
+			{
+				"value_name": "Interval",
+				"min": 0,
+				"max": 10,
+				"default_value": 1.5
+			},
+			{
+				"value_name": "Value",
+				"min": 0,
+				"max": 15,
+				"default_value": 8
+			}
+		],
+		"ob_dart": [
+			{
+				"value_name": "Speed",
+				"min": 0,
+				"max": 10,
+				"default_value": 3
+			},
+			{
+				"value_name": "Direction",
+				"min": 0,
+				"max": 3,
+				"default_value": 0
+			}
+		],
+		"ob_gear": [
+			{
+				"value_name": "Speed",
+				"min": 0,
+				"max": 10,
+				"default_value": 3
+			},
+			{
+				"value_name": "CounterClockWise",
+				"min": 0,
+				"max": 1,
+				"default_value": 0
+			}
+		],
+		"ob_lift": [
+			{
+				"value_name": "Speed",
+				"min": 0,
+				"max": 10,
+				"default_value": 3
+			},
+			{
+				"value_name": "Direction",
+				"min": 0,
+				"max": 3,
+				"default_value": 0
+			}
+		]
+	}
+}
