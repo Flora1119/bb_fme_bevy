@@ -1,4 +1,7 @@
-use super::{BLOCK_WORLD_SIZE, CollectibleStar, MapSpawnSet, PlayWorld, PlayerBall, SolidBlock};
+use super::{
+    BLOCK_WORLD_SIZE, BlockVisualSet, CollectibleStar, MapSpawnSet, PlayWorld, PlayerBall,
+    SolidBlock,
+};
 use bevy::{camera::ScalingMode, prelude::*};
 
 pub const MIN_VIEW_WIDTH: f32 = 25.0;
@@ -27,7 +30,8 @@ impl Plugin for MapPresentationPlugin {
                     add_solid_visuals,
                 )
                     .in_set(MapPresentationSet)
-                    .after(MapSpawnSet),
+                    .after(MapSpawnSet)
+                    .after(BlockVisualSet),
             );
     }
 }
