@@ -68,7 +68,7 @@ fn gameplay_roles_receive_distinct_placeholder_sprites() {
     let cases = [
         (GridPosition::new(2, 2), PLAYER_COLOR, PLAYER_VISUAL_SIZE),
         (GridPosition::new(8, 2), STAR_COLOR, STAR_VISUAL_SIZE),
-        (GridPosition::new(5, 0), SOLID_COLOR, SOLID_VISUAL_SIZE),
+        (GridPosition::new(2, 0), SOLID_COLOR, SOLID_VISUAL_SIZE),
         (GridPosition::new(12, 0), SPIKE_COLOR, SPIKE_VISUAL_SIZE),
     ];
 

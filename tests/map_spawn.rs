@@ -181,7 +181,7 @@ fn minial_slice_blocks_receive_gameplay_roles() {
         .expect("star must be indexed");
 
     let solid = index
-        .entity_at(GridPosition::new(5, 0))
+        .entity_at(GridPosition::new(2, 0))
         .expect("normal block must be indexed");
 
     let spike = index

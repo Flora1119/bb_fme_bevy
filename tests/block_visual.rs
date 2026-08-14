@@ -183,7 +183,7 @@ fn registered_sprites_replace_the_placeholder_visuals() {
     let cases = [
         (GridPosition::new(2, 2), "ball"),
         (GridPosition::new(8, 2), "star"),
-        (GridPosition::new(5, 0), "b_normal"),
+        (GridPosition::new(2, 0), "b_normal"),
         (GridPosition::new(12, 0), "s_normal"),
     ];
 

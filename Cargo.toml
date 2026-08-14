@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+avian2d = { version = "0.7", default-features = false, features = ["2d", "parry-f32", "debug-plugin"] }
 bevy = "0.19"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
