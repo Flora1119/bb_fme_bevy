@@ -3,7 +3,7 @@ use crate::{
     block::{BlockCategory, BlockId},
     domain::{CardinalDirection, GridPosition, ValidatedBlockOption, ValidatedMap},
 };
-use bevy::{ecs::system::entity_command, prelude::*};
+use bevy::prelude::*;
 use std::collections::HashMap;
 
 pub const BLOCK_WORLD_SIZE: f32 = 1.0;
