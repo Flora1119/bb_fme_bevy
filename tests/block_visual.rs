@@ -1,9 +1,9 @@
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
+    block::{BlockAssetConfig, EXPECTED_BLOCK_ID_COUNT},
     domain::{GridPosition, ValidatedMap},
     gameplay::{
         BlockVisualPlugin, BlockVisualRegistry, GridIndex, MapPresentationPlugin, MapSpawnPlugin,
-        PlaceholderVisual, RegisteredBlockVisual, SpawnValidatedMap,
+        PlaceholderVisual, RegisteredBlockVisual, SpawnValidatedMap, catalog_visual_path,
     },
     map::MapDocument,
 };
@@ -17,9 +17,12 @@ use std::time::Duration;
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
+fn load_block_config() -> BlockAssetConfig {
+    serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize")
+}
+
 fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
+    let config = load_block_config();
 
     let document: MapDocument =
         serde_json::from_str(MINIMAL_MAP).expect("map fixture must deserialize");
@@ -27,7 +30,7 @@ fn load_validated_map() -> ValidatedMap {
     ValidatedMap::from_document(&document, &config).expect("fixture must validate")
 }
 
-fn app_with_block_visuals() -> App {
+fn asset_app() -> App {
     let mut app = App::new();
 
     app.add_plugins((
@@ -37,11 +40,16 @@ fn app_with_block_visuals() -> App {
             ..default()
         },
         ImagePlugin::default_nearest(),
-        MapSpawnPlugin,
-        BlockVisualPlugin,
-        MapPresentationPlugin,
     ));
     app.register_asset_loader(ImageLoader::new(CompressedImageFormats::NONE));
+
+    app
+}
+
+fn app_with_block_visuals() -> App {
+    let mut app = asset_app();
+
+    app.add_plugins((MapSpawnPlugin, BlockVisualPlugin, MapPresentationPlugin));
 
     app.world_mut()
         .write_message(SpawnValidatedMap(load_validated_map()));
@@ -49,6 +57,31 @@ fn app_with_block_visuals() -> App {
     wait_until_images_are_loaded(&mut app);
 
     app
+}
+
+fn wait_until_handles_are_loaded(app: &mut App, handles: &[(String, Handle<Image>)]) {
+    for _ in 0..10_000 {
+        app.update();
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        if handles
+            .iter()
+            .all(|(_, handle)| asset_server.is_loaded_with_dependencies(handle))
+        {
+            return;
+        }
+
+        std::thread::sleep(Duration::from_millis(1));
+    }
+
+    let asset_server = app.world().resource::<AssetServer>();
+    let states: Vec<_> = handles
+        .iter()
+        .map(|(block_id, handle)| (block_id, asset_server.get_load_state(handle)))
+        .collect();
+
+    panic!("timed out while loading catalog PNG assets: {states:?}");
 }
 
 fn wait_until_images_are_loaded(app: &mut App) {
@@ -105,6 +138,39 @@ fn registry_loads_the_three_unity_png_files() {
 
         assert_eq!(image.size(), UVec2::splat(64));
         assert_eq!(visual.size(), Vec2::ONE);
+    }
+}
+
+#[test]
+fn every_configured_block_has_a_decodable_catalog_png() {
+    let mut app = asset_app();
+    let config = load_block_config();
+    let asset_server = app.world().resource::<AssetServer>();
+
+    let handles: Vec<_> = config
+        .block_groups
+        .iter()
+        .flat_map(|(category, block_ids)| {
+            block_ids.iter().map(|block_id| {
+                let path = catalog_visual_path(*category, block_id.as_str());
+                let handle = asset_server.load(path);
+
+                (block_id.to_string(), handle)
+            })
+        })
+        .collect();
+
+    assert_eq!(handles.len(), EXPECTED_BLOCK_ID_COUNT);
+
+    wait_until_handles_are_loaded(&mut app, &handles);
+
+    let images = app.world().resource::<Assets<Image>>();
+
+    for (block_id, handle) in handles {
+        assert!(
+            images.get(&handle).is_some(),
+            "catalog PNG for {block_id} must decode as an Image"
+        );
     }
 }
 

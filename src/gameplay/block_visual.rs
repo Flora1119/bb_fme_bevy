@@ -1,27 +1,24 @@
 use super::{BLOCK_WORLD_SIZE, BlockIdentity, MapSpawnSet, RuntimeBlock};
-use crate::block::BlockId;
+use crate::block::{BlockCategory, BlockId};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-const POC_VISUAL_PATHS: [(&str, &str); 3] = [
-    ("ball", "sprites/item/ball.png"),
-    ("star", "sprites/item/star.png"),
-    ("b_normal", "sprites/block/b_normal.png"),
-];
-
 type NewUnvisualizedRuntimeBlock = (Added<RuntimeBlock>, Without<Sprite>);
+
+pub fn catalog_visual_path(category: BlockCategory, block_id: &str) -> String {
+    format!("sprites/{category}/{block_id}.png")
+}
 
 pub struct BlockVisualPlugin;
 
 impl Plugin for BlockVisualPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_block_visual_registry)
-            .add_systems(
-                Update,
-                attach_registered_block_visuals
-                    .in_set(BlockVisualSet)
-                    .after(MapSpawnSet),
-            );
+        app.init_resource::<BlockVisualRegistry>().add_systems(
+            Update,
+            attach_registered_block_visuals
+                .in_set(BlockVisualSet)
+                .after(MapSpawnSet),
+        );
     }
 }
 
@@ -47,7 +44,7 @@ impl BlockVisual {
     }
 }
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 pub struct BlockVisualRegistry {
     visuals: HashMap<BlockId, BlockVisual>,
 }
@@ -68,40 +65,36 @@ impl BlockVisualRegistry {
     pub fn iter(&self) -> impl Iterator<Item = (&BlockId, &BlockVisual)> {
         self.visuals.iter()
     }
-}
 
-fn load_block_visual_registry(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let visuals = POC_VISUAL_PATHS
-        .into_iter()
-        .map(|(block_id, path)| {
-            (
-                BlockId::from(block_id),
-                BlockVisual {
-                    image: asset_server.load(path),
-                    size: Vec2::splat(BLOCK_WORLD_SIZE),
-                },
-            )
-        })
-        .collect();
+    fn load_for(&mut self, identity: &BlockIdentity, asset_server: &AssetServer) -> BlockVisual {
+        if let Some(visual) = self.visuals.get(&identity.id) {
+            return visual.clone();
+        }
 
-    commands.insert_resource(BlockVisualRegistry { visuals });
+        let visual = BlockVisual {
+            image: asset_server.load(catalog_visual_path(identity.category, identity.id.as_str())),
+            size: Vec2::splat(BLOCK_WORLD_SIZE),
+        };
+
+        self.visuals.insert(identity.id.clone(), visual.clone());
+        visual
+    }
 }
 
 fn attach_registered_block_visuals(
     mut commands: Commands,
-    registry: Res<BlockVisualRegistry>,
+    asset_server: Res<AssetServer>,
+    mut registry: ResMut<BlockVisualRegistry>,
     blocks: Query<(Entity, &BlockIdentity), NewUnvisualizedRuntimeBlock>,
 ) {
     for (entity, identity) in &blocks {
-        let Some(visual) = registry.get(identity.id.as_str()) else {
-            continue;
-        };
+        let visual = registry.load_for(identity, &asset_server);
 
         commands.entity(entity).insert((
             RegisteredBlockVisual,
             Sprite {
-                image: visual.image().clone(),
-                custom_size: Some(visual.size()),
+                image: visual.image,
+                custom_size: Some(visual.size),
                 ..default()
             },
         ));
