@@ -1,8 +1,5 @@
 use super::CardinalDirection;
-use crate::{
-    block::{BlockCategory, BlockId},
-    domain::direction,
-};
+use crate::block::{BlockCategory, BlockId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GridPosition {
