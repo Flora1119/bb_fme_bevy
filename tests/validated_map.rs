@@ -52,7 +52,7 @@ fn document_projects_to_typed_runtime_map() {
     assert_eq!(runtime.settings.required_stars, 1);
     assert_eq!(runtime.settings.size.width, 25);
     assert_eq!(runtime.settings.size.height, 15);
-    assert_eq!(runtime.blocks.len(), 3);
+    assert_eq!(runtime.blocks.len(), 4);
 
     let ball = runtime
         .block_at(GridPosition::new(2, 2))
@@ -61,6 +61,14 @@ fn document_projects_to_typed_runtime_map() {
     assert_eq!(ball.id.as_str(), "ball");
     assert_eq!(ball.category, BlockCategory::Item);
     assert_eq!(ball.direction, CardinalDirection::Up);
+
+    let spike = runtime
+        .block_at(GridPosition::new(12, 0))
+        .expect("spike must exist");
+
+    assert_eq!(spike.id.as_str(), "s_normal");
+    assert_eq!(spike.category, BlockCategory::Spike);
+    assert_eq!(spike.direction, CardinalDirection::Up);
 }
 
 #[test]

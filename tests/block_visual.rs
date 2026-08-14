@@ -121,14 +121,14 @@ fn wait_until_images_are_loaded(app: &mut App) {
 }
 
 #[test]
-fn registry_loads_the_three_unity_png_files() {
+fn registry_loads_the_minimal_map_unity_png_files() {
     let app = app_with_block_visuals();
     let registry = app.world().resource::<BlockVisualRegistry>();
     let images = app.world().resource::<Assets<Image>>();
 
-    assert_eq!(registry.len(), 3);
+    assert_eq!(registry.len(), 4);
 
-    for block_id in ["ball", "star", "b_normal"] {
+    for block_id in ["ball", "star", "b_normal", "s_normal"] {
         let visual = registry
             .get(block_id)
             .expect("PoC block must have a registered visual");
@@ -184,6 +184,7 @@ fn registered_sprites_replace_the_placeholder_visuals() {
         (GridPosition::new(2, 2), "ball"),
         (GridPosition::new(8, 2), "star"),
         (GridPosition::new(5, 0), "b_normal"),
+        (GridPosition::new(12, 0), "s_normal"),
     ];
 
     for (position, block_id) in cases {

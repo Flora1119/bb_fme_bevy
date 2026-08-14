@@ -3,8 +3,8 @@ use bb_fme_bevy::{
     domain::{CardinalDirection, GridPosition, ValidatedMap},
     gameplay::{
         ActivePlayWorld, BlockFacing, BlockIdentity, BlockOptions, CollectibleStar,
-        CurrentGridPosition, GridIndex, MapSpawnPlugin, OriginGridPosition, PlayWorld, PlayerBall,
-        RuntimeBlock, SolidBlock, SpawnValidatedMap,
+        CurrentGridPosition, DeadlySpike, GridIndex, MapSpawnPlugin, OriginGridPosition, PlayWorld,
+        PlayerBall, RuntimeBlock, SolidBlock, SpawnValidatedMap,
     },
     map::MapDocument,
 };
@@ -53,6 +53,11 @@ fn plugin_spawns_one_play_world_and_one_entity_per_block() {
         .expect("root must contain the immutable map definition");
 
     assert_eq!(play_world.definition(), &map);
+
+    assert_eq!(
+        app.world().get::<Visibility>(root),
+        Some(&Visibility::Inherited)
+    );
 
     let world = app.world_mut();
     let mut blocks = world.query_filtered::<Entity, With<RuntimeBlock>>();
@@ -179,10 +184,17 @@ fn minial_slice_blocks_receive_gameplay_roles() {
         .entity_at(GridPosition::new(5, 0))
         .expect("normal block must be indexed");
 
+    let spike = index
+        .entity_at(GridPosition::new(12, 0))
+        .expect("normal spike must be indexed");
+
     assert!(app.world().get::<PlayerBall>(ball).is_some());
     assert!(app.world().get::<CollectibleStar>(star).is_some());
     assert!(app.world().get::<SolidBlock>(solid).is_some());
+    assert!(app.world().get::<DeadlySpike>(spike).is_some());
 
     assert!(app.world().get::<SolidBlock>(ball).is_none());
     assert!(app.world().get::<PlayerBall>(star).is_none());
+    assert!(app.world().get::<DeadlySpike>(solid).is_none());
+    assert!(app.world().get::<SolidBlock>(spike).is_none());
 }

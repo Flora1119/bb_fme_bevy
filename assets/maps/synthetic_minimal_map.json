@@ -61,6 +61,15 @@
 				"name": "b_normal",
 				"dir": 0
 			}
+		},
+		{
+			"x": 12,
+			"y": 0,
+			"block": {
+				"type": "spike",
+				"name": "s_normal",
+				"dir": 0
+			}
 		}
 	],
 	"block_options": [],

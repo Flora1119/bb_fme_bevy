@@ -4,7 +4,8 @@ use bb_fme_bevy::{
     gameplay::{
         GridIndex, MIN_VIEW_HEIGHT, MIN_VIEW_WIDTH, MapCamera, MapPresentationPlugin,
         MapSpawnPlugin, PLAYER_COLOR, PLAYER_VISUAL_SIZE, PlaceholderVisual, SOLID_COLOR,
-        SOLID_VISUAL_SIZE, STAR_COLOR, STAR_VISUAL_SIZE, SpawnValidatedMap,
+        SOLID_VISUAL_SIZE, SPIKE_COLOR, SPIKE_VISUAL_SIZE, STAR_COLOR, STAR_VISUAL_SIZE,
+        SpawnValidatedMap,
     },
     map::MapDocument,
 };
@@ -68,6 +69,7 @@ fn gameplay_roles_receive_distinct_placeholder_sprites() {
         (GridPosition::new(2, 2), PLAYER_COLOR, PLAYER_VISUAL_SIZE),
         (GridPosition::new(8, 2), STAR_COLOR, STAR_VISUAL_SIZE),
         (GridPosition::new(5, 0), SOLID_COLOR, SOLID_VISUAL_SIZE),
+        (GridPosition::new(12, 0), SPIKE_COLOR, SPIKE_VISUAL_SIZE),
     ];
 
     for (position, expected_color, expected_size) in cases {

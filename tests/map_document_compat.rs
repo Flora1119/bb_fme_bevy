@@ -15,7 +15,7 @@ fn unity_map_json_round_trips_without_data_loss() {
     assert_eq!(document.map_settings.size.width, 25);
     assert_eq!(document.map_settings.size.height, 15);
     assert_eq!(document.map_settings.tp1_exit.x, -1);
-    assert_eq!(document.blocks.len(), 3);
+    assert_eq!(document.blocks.len(), 4);
 
     assert_eq!(
         document.extra.get("future_top_level_field"),

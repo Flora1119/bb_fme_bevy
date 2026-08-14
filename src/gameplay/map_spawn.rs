@@ -1,4 +1,4 @@
-use super::{CollectibleStar, PlayerBall, SolidBlock};
+use super::{CollectibleStar, DeadlySpike, PlayerBall, SolidBlock};
 use crate::{
     block::{BlockCategory, BlockId},
     domain::{CardinalDirection, GridPosition, ValidatedBlockOption, ValidatedMap},
@@ -106,6 +106,7 @@ fn spawn_requested_map(
                 definition: map.clone(),
             },
             Transform::default(),
+            Visibility::Inherited,
         ))
         .id();
 
@@ -138,8 +139,14 @@ fn spawn_requested_map(
             ChildOf(root),
         ));
 
-        if block.category == BlockCategory::Block {
-            entity_commands.insert(SolidBlock);
+        match block.category {
+            BlockCategory::Block => {
+                entity_commands.insert(SolidBlock);
+            }
+            BlockCategory::Spike => {
+                entity_commands.insert(DeadlySpike);
+            }
+            _ => {}
         }
 
         match block.id.as_str() {
