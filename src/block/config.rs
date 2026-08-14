@@ -167,6 +167,16 @@ impl BlockAssetConfig {
         self.block_groups.get(&category).map(Vec::as_slice)
     }
 
+    pub fn category_for(&self, block_id: &str) -> Option<BlockCategory> {
+        BlockCategory::ALL.into_iter().find(|category| {
+            self.blocks_in(*category).is_some_and(|block_ids| {
+                block_ids
+                    .iter()
+                    .any(|candidate| candidate.as_str() == block_id)
+            })
+        })
+    }
+
     pub fn validate(&self) -> Result<(), ConfigValidationErrors> {
         let mut problems = Vec::new();
 

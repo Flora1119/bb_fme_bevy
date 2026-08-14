@@ -1,8 +1,5 @@
 use super::{MapBlockEntry, MapBlockOption, MapDocument};
-use crate::{
-    block::{BlockAssetConfig, BlockCategory},
-    domain::CardinalDirection,
-};
+use crate::{block::BlockAssetConfig, domain::CardinalDirection};
 use std::{
     collections::{BTreeMap, BTreeSet},
     error::Error,
@@ -154,7 +151,7 @@ fn validate_blocks<'a>(
             ));
         }
 
-        let configured_category = configured_category(config, block_name);
+        let configured_category = config.category_for(block_name);
 
         match configured_category {
             Some(category) => {
@@ -201,25 +198,6 @@ fn validate_blocks<'a>(
                 ));
             }
         }
-
-        // if !(0..=3).contains(&entry.block.dir) {
-        //     problems.push(format!(
-        //         "block {block_name} at ({}, {}) has invalid direction {}",
-        //         entry.x, entry.y, entry.block.dir
-        //     ));
-        // }
-
-        // let is_rotatable = config
-        //     .block_rotatable
-        //     .iter()
-        //     .any(|block_id| block_id.as_str() == block_name);
-
-        // if entry.block.dir != 0 && !is_rotatable {
-        //     problems.push(format!(
-        //         "non-rotatable block {block_name} has direction {}",
-        //         entry.block.dir
-        //     ));
-        // }
 
         match block_name {
             BALL_ID => {
@@ -533,14 +511,4 @@ fn positions_of(
         .iter()
         .filter_map(|(position, entry)| (entry.block.name == block_id).then_some(*position))
         .collect()
-}
-
-fn configured_category(config: &BlockAssetConfig, block_name: &str) -> Option<BlockCategory> {
-    BlockCategory::ALL.into_iter().find(|category| {
-        config.blocks_in(*category).is_some_and(|block_ids| {
-            block_ids
-                .iter()
-                .any(|block_id| block_id.as_str() == block_name)
-        })
-    })
 }
