@@ -1,8 +1,9 @@
+use super::{CollectibleStar, PlayerBall, SolidBlock};
 use crate::{
     block::{BlockCategory, BlockId},
     domain::{CardinalDirection, GridPosition, ValidatedBlockOption, ValidatedMap},
 };
-use bevy::prelude::*;
+use bevy::{ecs::system::entity_command, prelude::*};
 use std::collections::HashMap;
 
 pub const BLOCK_WORLD_SIZE: f32 = 1.0;
@@ -114,30 +115,44 @@ fn spawn_requested_map(
         let position = block.position;
         let angle = (block.direction.unity_angle_degrees() as f32).to_radians();
 
-        let entity = commands
-            .spawn((
-                Name::new(format!(
-                    "Block: {} @ ({}, {})",
-                    block.id, position.x, position.y
-                )),
-                RuntimeBlock,
-                BlockIdentity {
-                    id: block.id.clone(),
-                    category: block.category,
-                },
-                BlockFacing(block.direction),
-                BlockOptions(block.options.clone()),
-                CurrentGridPosition(position),
-                OriginGridPosition(position),
-                Transform::from_xyz(
-                    position.x as f32 * BLOCK_WORLD_SIZE,
-                    position.y as f32 * BLOCK_WORLD_SIZE,
-                    0.0,
-                )
-                .with_rotation(Quat::from_rotation_z(angle)),
-                ChildOf(root),
-            ))
-            .id();
+        let mut entity_commands = commands.spawn((
+            Name::new(format!(
+                "Block: {} @ ({}, {})",
+                block.id, position.x, position.y
+            )),
+            RuntimeBlock,
+            BlockIdentity {
+                id: block.id.clone(),
+                category: block.category,
+            },
+            BlockFacing(block.direction),
+            BlockOptions(block.options.clone()),
+            CurrentGridPosition(position),
+            OriginGridPosition(position),
+            Transform::from_xyz(
+                position.x as f32 * BLOCK_WORLD_SIZE,
+                position.y as f32 * BLOCK_WORLD_SIZE,
+                0.0,
+            )
+            .with_rotation(Quat::from_rotation_z(angle)),
+            ChildOf(root),
+        ));
+
+        if block.category == BlockCategory::Block {
+            entity_commands.insert(SolidBlock);
+        }
+
+        match block.id.as_str() {
+            "ball" => {
+                entity_commands.insert(PlayerBall);
+            }
+            "star" => {
+                entity_commands.insert(CollectibleStar);
+            }
+            _ => {}
+        }
+
+        let entity = entity_commands.id();
 
         let previous = next_grid_index.insert(position, entity);
 

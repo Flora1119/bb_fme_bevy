@@ -1,7 +1,7 @@
 use bb_fme_bevy::map::MapDocument;
 use serde_json::Value;
 
-const MINIMAL_MAP: &str = include_str!("fixtures/synthetic_minimal_map.json");
+const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
 #[test]
 fn unity_map_json_round_trips_without_data_loss() {

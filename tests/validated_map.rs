@@ -9,7 +9,7 @@ use bb_fme_bevy::{
 
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
-const MINIMAL_MAP: &str = include_str!("fixtures/synthetic_minimal_map.json");
+const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
 fn load_config() -> BlockAssetConfig {
     serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize")

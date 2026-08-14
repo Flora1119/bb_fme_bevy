@@ -2,15 +2,16 @@ use bb_fme_bevy::{
     block::BlockAssetConfig,
     domain::{CardinalDirection, GridPosition, ValidatedMap},
     gameplay::{
-        ActivePlayWorld, BlockFacing, BlockIdentity, BlockOptions, CurrentGridPosition, GridIndex,
-        MapSpawnPlugin, OriginGridPosition, PlayWorld, RuntimeBlock, SpawnValidatedMap,
+        ActivePlayWorld, BlockFacing, BlockIdentity, BlockOptions, CollectibleStar,
+        CurrentGridPosition, GridIndex, MapSpawnPlugin, OriginGridPosition, PlayWorld, PlayerBall,
+        RuntimeBlock, SolidBlock, SpawnValidatedMap,
     },
     map::MapDocument,
 };
 use bevy::prelude::*;
 
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
-const MINIMAL_MAP: &str = include_str!("fixtures/synthetic_minimal_map.json");
+const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
 fn load_validated_map() -> ValidatedMap {
     let config: BlockAssetConfig =
@@ -159,4 +160,29 @@ fn a_new_spawn_request_replaces_the_previous_play_world() {
             .definition(),
         &replacement
     );
+}
+
+#[test]
+fn minial_slice_blocks_receive_gameplay_roles() {
+    let (app, _) = app_with_spawned_map();
+    let index = app.world().resource::<GridIndex>();
+
+    let ball = index
+        .entity_at(GridPosition::new(2, 2))
+        .expect("ball must be indexed");
+
+    let star = index
+        .entity_at(GridPosition::new(8, 2))
+        .expect("star must be indexed");
+
+    let solid = index
+        .entity_at(GridPosition::new(5, 0))
+        .expect("normal block must be indexed");
+
+    assert!(app.world().get::<PlayerBall>(ball).is_some());
+    assert!(app.world().get::<CollectibleStar>(star).is_some());
+    assert!(app.world().get::<SolidBlock>(solid).is_some());
+
+    assert!(app.world().get::<SolidBlock>(ball).is_none());
+    assert!(app.world().get::<PlayerBall>(star).is_none());
 }
