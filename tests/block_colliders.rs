@@ -3,10 +3,11 @@ use bb_fme_bevy::{
     block::BlockAssetConfig,
     domain::{GridPosition, ValidatedMap},
     gameplay::{
-        BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_BOUNCE_VELOCITY, MapSpawnPlugin,
-        PHYSICS_HZ, PLAYER_COLLIDER_RADIUS, PLAYER_GRAVITY_SCALE, PLAYER_MASS, PlayerPhysicsBody,
-        SOLID_COLLIDER_SIZE, SPIKE_SENSOR_OFFSET, SPIKE_SENSOR_SIZE, SolidBlock, SpawnValidatedMap,
-        SpikeSensorCollider,
+        BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_BOUNCE_VELOCITY,
+        MIN_WALL_BOUNCE_SPEED, MapSpawnPlugin, PHYSICS_HZ, PLAYER_COLLIDER_RADIUS,
+        PLAYER_GRAVITY_SCALE, PLAYER_MASS, PlayerPhysicsBody, SOLID_COLLIDER_SIZE,
+        SPIKE_SENSOR_OFFSET, SPIKE_SENSOR_SIZE, SolidBlock, SpawnValidatedMap, SpikeSensorCollider,
+        WALL_BOUNCE_DAMPING_RATIO,
     },
     map::MapDocument,
 };
@@ -312,6 +313,158 @@ fn player_ball_stops_rising_when_it_hits_a_ceiling() {
         "expected the ceiling to stop the player \
          without a strong downward rebound, \
          found {stop_velocity}"
+    );
+}
+
+#[test]
+fn player_ball_bounces_away_from_a_right_wall_with_minimum_speed() {
+    const WALL_CENTER_X: f32 = 3.0;
+    const LAUNCH_SPEED: f32 = 5.0;
+    const VELOCITY_TOLERANCE: f32 = 0.05;
+    const POSITION_TOLERANCE: f32 = 0.08;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    // 공 오른쪽에 테스트용 수직 벽을 만듭니다.
+    app.world_mut().spawn((
+        Name::new("Test right wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(WALL_CENTER_X, 2.0, 0.0),
+    ));
+
+    // 낮은 속도로 오른쪽 벽을 향해 발사합니다.
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(LAUNCH_SPEED, 0.0);
+
+    let expected_contact_x = WALL_CENTER_X - SOLID_COLLIDER_SIZE.x * 0.5 - PLAYER_COLLIDER_RADIUS;
+
+    let mut wall_bounce = None;
+
+    for _ in 0..20 {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let horizontal_velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0
+            .x;
+
+        if horizontal_velocity < -1.0 {
+            wall_bounce = Some((position.x, horizontal_velocity));
+
+            break;
+        }
+    }
+
+    let (contact_x, rebound_velocity) =
+        wall_bounce.expect("player did not bounce from the right wall");
+
+    assert!(
+        (contact_x - expected_contact_x).abs() <= POSITION_TOLERANCE,
+        "expected right wall contact x near \
+         {expected_contact_x}, found {contact_x}"
+    );
+
+    assert!(
+        (rebound_velocity + MIN_WALL_BOUNCE_SPEED).abs() <= VELOCITY_TOLERANCE,
+        "expected right wall rebound velocity near \
+         -{MIN_WALL_BOUNCE_SPEED}, \
+         found {rebound_velocity}"
+    );
+}
+
+#[test]
+fn player_ball_damps_a_high_speed_left_wall_impact() {
+    const WALL_CENTER_X: f32 = 1.0;
+    const LAUNCH_SPEED: f32 = 20.0;
+    const VELOCITY_TOLERANCE: f32 = 0.1;
+    const POSITION_TOLERANCE: f32 = 0.08;
+
+    let expected_rebound_speed = LAUNCH_SPEED * WALL_BOUNCE_DAMPING_RATIO;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    // 공 왼쪽에 테스트용 수직 벽을 만듭니다.
+    app.world_mut().spawn((
+        Name::new("Test left wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(WALL_CENTER_X, 2.0, 0.0),
+    ));
+
+    // 고속으로 왼쪽 벽을 향해 발사합니다.
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(-LAUNCH_SPEED, 0.0);
+
+    let expected_contact_x = WALL_CENTER_X + SOLID_COLLIDER_SIZE.x * 0.5 + PLAYER_COLLIDER_RADIUS;
+
+    let mut wall_bounce = None;
+
+    for _ in 0..20 {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let horizontal_velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0
+            .x;
+
+        if horizontal_velocity > 1.0 {
+            wall_bounce = Some((position.x, horizontal_velocity));
+
+            break;
+        }
+    }
+
+    let (contact_x, rebound_velocity) =
+        wall_bounce.expect("player did not bounce from the left wall");
+
+    assert!(
+        (contact_x - expected_contact_x).abs() <= POSITION_TOLERANCE,
+        "expected left wall contact x near \
+         {expected_contact_x}, found {contact_x}"
+    );
+
+    assert!(
+        (rebound_velocity - expected_rebound_speed).abs() <= VELOCITY_TOLERANCE,
+        "expected damped rebound velocity near \
+         {expected_rebound_speed}, \
+         found {rebound_velocity}"
     );
 }
 

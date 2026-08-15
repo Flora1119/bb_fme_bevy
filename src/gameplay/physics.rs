@@ -9,6 +9,9 @@ pub const WORLD_GRAVITY: Vec2 = Vec2::new(0.0, -9.81);
 pub const MIN_BOUNCE_VELOCITY: f32 = 9.5;
 pub const FLOOR_COLLISION_THRESHOLD: f32 = 0.7;
 pub const CEILING_COLLISION_THRESHOLD: f32 = 0.7;
+pub const WALL_COLLISION_THRESHOLD: f32 = 0.9;
+pub const MIN_WALL_BOUNCE_SPEED: f32 = 12.0;
+pub const WALL_BOUNCE_DAMPING_RATIO: f32 = 0.8;
 
 pub const PLAYER_COLLIDER_RADIUS: f32 = 0.2 * BLOCK_WORLD_SIZE;
 pub const PLAYER_MASS: f32 = 5.0;
@@ -29,11 +32,18 @@ impl Plugin for GameplayPhysicsPlugin {
         app.add_plugins(PhysicsPlugins::default().with_length_unit(BLOCK_WORLD_SIZE))
             .insert_resource(Time::<Fixed>::from_hz(PHYSICS_HZ))
             .insert_resource(Gravity(WORLD_GRAVITY))
+            .init_resource::<PendingSolidContactResponses>()
             .add_systems(
                 Update,
                 (attach_player_physics, attach_block_colliders)
                     .in_set(PhysicsInitializationSet)
                     .after(MapSpawnSet),
+            )
+            .add_systems(
+                PhysicsSchedule,
+                collect_started_solid_contacts
+                    .after(PhysicsStepSystems::NarrowPhase)
+                    .before(PhysicsStepSystems::Solver),
             )
             .add_systems(
                 PhysicsSchedule,
@@ -56,10 +66,31 @@ pub struct PlayerPhysicsBody;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpikeSensorCollider;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Resource, Debug, Default)]
+struct PendingSolidContactResponses(HashMap<Entity, StartedSolidContacts>);
+
+#[derive(Debug, Clone, Copy)]
 struct StartedSolidContacts {
     floor: bool,
     ceiling: bool,
+
+    // 벽에서 공 쪽으로 향하는 방향입니다.
+    // 즉, 벽 반대 방향이자 공이 튕겨 나갈 방향입니다.
+    wall_direction: Vec2,
+
+    // Avian Solver가 속도를 제거하기 전에 저장한 입사 속도입니다.
+    incoming_velocity: Vec2,
+}
+
+impl StartedSolidContacts {
+    fn new(incoming_velocity: Vec2) -> Self {
+        Self {
+            floor: false,
+            ceiling: false,
+            wall_direction: Vec2::ZERO,
+            incoming_velocity,
+        }
+    }
 }
 
 fn attach_player_physics(
@@ -119,70 +150,112 @@ fn attach_block_colliders(
     }
 }
 
-fn apply_solid_contact_response(
+fn collect_started_solid_contacts(
     mut collision_starts: MessageReader<CollisionStart>,
     collisions: Collisions,
     gravity: Res<Gravity>,
-    players: Query<(), With<PlayerBall>>,
+    players: Query<&LinearVelocity, With<PlayerBall>>,
     solids: Query<(), With<SolidBlock>>,
-    mut velocities: Query<&mut LinearVelocity, With<PlayerBall>>,
+    mut pending: ResMut<PendingSolidContactResponses>,
 ) {
-    // 현재 중력의 반대 방향이 공이 튀어 오르는 방향입니다.
-    //
-    // 지금은 아래 방향 중력만 사용하지만, Gravity Resource를 읽도록
-    // 만들어 두면 나중의 중력 반전에서도 같은 코드를 사용할 수 있습니다.
+    // 이전 물리 틱에 남은 임시 결과를 제거합니다.
+    pending.0.clear();
+
     let bounce_direction = (-gravity.0).normalize_or_zero();
 
     if bounce_direction == Vec2::ZERO {
         return;
     }
 
-    // 같은 물리 틱에 여러 블록과 접촉하더라도,
-    // 공마다 접촉 결과를 한 번만 처리하기 위해 먼저 집계합니다.
-    let mut contacts_by_player = HashMap::<Entity, StartedSolidContacts>::new();
+    // 중력에 수직인 축입니다.
+    //
+    // 현재 아래 방향 중력에서는 Vec2::X와 같으며,
+    // 중력이 반전돼도 벽 반동 계산에 그대로 사용할 수 있습니다.
+    let wall_axis = Vec2::new(bounce_direction.y, -bounce_direction.x);
 
     for event in collision_starts.read() {
-        // CollisionStart에는 접촉 법선이 없으므로
-        // 실제 ContactPair에서 Manifold 정보를 읽습니다.
         let Some(contact_pair) = collisions.get(event.collider1, event.collider2) else {
             continue;
         };
 
-        // Collider가 Rigidbody와 같은 Entity일 수도 있고
-        // 자식 Entity일 수도 있으므로 Body를 우선 사용합니다.
         let body1 = contact_pair.body1.unwrap_or(contact_pair.collider1);
 
         let body2 = contact_pair.body2.unwrap_or(contact_pair.collider2);
 
-        // ContactManifold의 normal은 첫 번째 물체에서
-        // 두 번째 물체를 향합니다.
-        //
-        // normal_toward_player는 항상 표면에서 공 쪽을 향하도록
-        // 방향을 통일합니다.
         let (player, normal_sign) = if players.contains(body1) && solids.contains(body2) {
             (body1, -1.0)
         } else if players.contains(body2) && solids.contains(body1) {
             (body2, 1.0)
         } else {
-            // 공과 일반 SolidBlock의 접촉이 아닙니다.
             continue;
         };
 
-        let started_contacts = contacts_by_player.entry(player).or_default();
+        let Ok(player_velocity) = players.get(player) else {
+            continue;
+        };
+
+        let started_contacts = pending
+            .0
+            .entry(player)
+            .or_insert_with(|| StartedSolidContacts::new(player_velocity.0));
 
         for manifold in &contact_pair.manifolds {
+            // 표면에서 공 쪽을 향하는 법선으로 방향을 통일합니다.
             let normal_toward_player = manifold.normal * normal_sign;
 
             let floor_dot = normal_toward_player.dot(bounce_direction);
 
-            // Unity 원본과 동일하게 바닥을 우선 분류합니다.
+            // Unity와 동일하게 한 Manifold를
+            // 바닥 → 천장 → 벽 순서로 분류합니다.
             if floor_dot > FLOOR_COLLISION_THRESHOLD {
                 started_contacts.floor = true;
             } else if floor_dot < -CEILING_COLLISION_THRESHOLD {
                 started_contacts.ceiling = true;
+            } else {
+                let wall_dot = normal_toward_player.dot(wall_axis);
+
+                if wall_dot.abs() > WALL_COLLISION_THRESHOLD {
+                    // wall_axis 위에서 실제 법선 방향을 복원합니다.
+                    let candidate_direction = wall_axis * wall_dot.signum();
+
+                    // 여러 벽이 동시에 감지될 경우,
+                    // 공이 가장 강하게 접근하던 벽을 선택합니다.
+                    let candidate_impact_speed =
+                        -started_contacts.incoming_velocity.dot(candidate_direction);
+
+                    let current_impact_speed = if started_contacts.wall_direction == Vec2::ZERO {
+                        f32::NEG_INFINITY
+                    } else {
+                        -started_contacts
+                            .incoming_velocity
+                            .dot(started_contacts.wall_direction)
+                    };
+
+                    if candidate_impact_speed > current_impact_speed {
+                        started_contacts.wall_direction = candidate_direction;
+                    }
+                }
             }
         }
     }
+}
+
+fn apply_solid_contact_response(
+    gravity: Res<Gravity>,
+    mut pending: ResMut<PendingSolidContactResponses>,
+    mut velocities: Query<&mut LinearVelocity, With<PlayerBall>>,
+) {
+    let bounce_direction = (-gravity.0).normalize_or_zero();
+
+    if bounce_direction == Vec2::ZERO {
+        pending.0.clear();
+        return;
+    }
+
+    let wall_axis = Vec2::new(bounce_direction.y, -bounce_direction.x);
+
+    // 이번 물리 틱의 결과를 꺼내고 Resource는 빈 상태로 만듭니다.
+    let contacts_by_player = std::mem::take(&mut pending.0);
 
     for (player, started_contacts) in contacts_by_player {
         let Ok(mut velocity) = velocities.get_mut(player) else {
@@ -191,7 +264,7 @@ fn apply_solid_contact_response(
 
         let current_bounce_speed = velocity.0.dot(bounce_direction);
 
-        // 1. 바닥 접촉은 가장 높은 우선순위를 가집니다.
+        // 1. 바닥 접촉
         if started_contacts.floor {
             if current_bounce_speed < MIN_BOUNCE_VELOCITY {
                 velocity.0 += bounce_direction * (MIN_BOUNCE_VELOCITY - current_bounce_speed);
@@ -200,10 +273,31 @@ fn apply_solid_contact_response(
             continue;
         }
 
-        // 2. 천장 접촉 시에는 천장 방향으로 진행하던 속도 성분만
-        // 제거합니다. 수평 속도는 그대로 보존합니다.
-        if started_contacts.ceiling && current_bounce_speed > 0.0 {
-            velocity.0 -= bounce_direction * current_bounce_speed;
+        // 2. 천장 접촉
+        if started_contacts.ceiling {
+            if current_bounce_speed > 0.0 {
+                velocity.0 -= bounce_direction * current_bounce_speed;
+            }
+
+            continue;
+        }
+
+        // 3. 벽 접촉
+        if started_contacts.wall_direction != Vec2::ZERO {
+            // Solver 전 입사 속도를 사용합니다.
+            let incoming_wall_speed = started_contacts.incoming_velocity.dot(wall_axis).abs();
+
+            let outgoing_wall_speed =
+                (incoming_wall_speed * WALL_BOUNCE_DAMPING_RATIO).max(MIN_WALL_BOUNCE_SPEED);
+
+            // Solver가 남긴 벽 축 속도를 먼저 제거합니다.
+            // 중력 축의 속도는 건드리지 않습니다.
+            let current_wall_speed = velocity.0.dot(wall_axis);
+
+            velocity.0 -= wall_axis * current_wall_speed;
+
+            // 벽에서 공 쪽, 즉 벽 반대 방향으로 반동합니다.
+            velocity.0 += started_contacts.wall_direction * outgoing_wall_speed;
         }
     }
 }
