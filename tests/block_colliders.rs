@@ -469,6 +469,179 @@ fn player_ball_damps_a_high_speed_left_wall_impact() {
 }
 
 #[test]
+fn player_ball_does_not_wall_bounce_while_grazing() {
+    // 공의 오른쪽 가장자리와 벽이 아주 조금 겹치게 하여
+    // 확실하게 접촉이 생성되도록 합니다.
+    const WALL_CENTER_X: f32 = 2.699;
+    const MAX_HORIZONTAL_SPEED: f32 = 0.25;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    app.world_mut().spawn((
+        Name::new("Test grazing wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(WALL_CENTER_X, 2.0, 0.0),
+    ));
+
+    // 벽 쪽 수평 속도 없이 벽을 따라 아래로 움직입니다.
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(0.0, -2.0);
+
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let velocity = app
+        .world()
+        .get::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0;
+
+    assert!(
+        velocity.x.abs() <= MAX_HORIZONTAL_SPEED,
+        "grazing contact unexpectedly launched the player \
+         horizontally: {}",
+        velocity.x
+    );
+}
+
+#[test]
+fn player_ball_is_not_accelerated_while_moving_away_from_a_wall() {
+    const WALL_CENTER_X: f32 = 2.699;
+    const MOVING_AWAY_SPEED: f32 = -0.01;
+    const MAX_ALLOWED_REBOUND_SPEED: f32 = 0.5;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    app.world_mut().spawn((
+        Name::new("Test separating wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(WALL_CENTER_X, 2.0, 0.0),
+    ));
+
+    // 벽은 오른쪽에 있지만 공은 이미 왼쪽으로
+    // 아주 천천히 빠져나가는 중입니다.
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(MOVING_AWAY_SPEED, 0.0);
+
+    app.update();
+
+    let horizontal_velocity = app
+        .world()
+        .get::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0
+        .x;
+
+    assert!(
+        horizontal_velocity.abs() <= MAX_ALLOWED_REBOUND_SPEED,
+        "separating contact unexpectedly amplified \
+         horizontal velocity to {horizontal_velocity}"
+    );
+}
+
+#[test]
+fn floor_contact_wins_over_wall_contact_at_a_corner() {
+    const FLOOR_CENTER_Y: f32 = 1.0;
+    const WALL_CENTER_X: f32 = 3.0;
+    const APPROACH_SPEED: f32 = 5.0;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    // 중력에 의한 속도 변화 없이 정확한 대각선으로
+    // 모서리에 진입시키기 위해 이 테스트에서만 중력을 끕니다.
+    *app.world_mut()
+        .get_mut::<GravityScale>(ball)
+        .expect("player must have a gravity scale") = GravityScale(0.0);
+
+    // 공 아래쪽의 테스트용 바닥입니다.
+    app.world_mut().spawn((
+        Name::new("Test corner floor"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(2.0, FLOOR_CENTER_Y, 0.0),
+    ));
+
+    // 바닥 오른쪽 끝과 맞닿는 테스트용 벽입니다.
+    app.world_mut().spawn((
+        Name::new("Test corner wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(WALL_CENTER_X, 2.0, 0.0),
+    ));
+
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(APPROACH_SPEED, -APPROACH_SPEED);
+
+    let mut corner_response = None;
+
+    for _ in 0..10 {
+        app.update();
+
+        let velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0;
+
+        if velocity.y >= MIN_BOUNCE_VELOCITY - 0.05 {
+            corner_response = Some(velocity);
+            break;
+        }
+    }
+
+    let velocity = corner_response.expect("player did not receive a floor response at the corner");
+
+    assert!(
+        velocity.y >= MIN_BOUNCE_VELOCITY - 0.05,
+        "expected floor bounce at the corner, \
+         found vertical velocity {}",
+        velocity.y
+    );
+
+    assert!(
+        velocity.x > -MIN_WALL_BOUNCE_SPEED * 0.5,
+        "wall response overrode floor priority \
+         at the corner: horizontal velocity {}",
+        velocity.x
+    );
+}
+
+#[test]
 #[ignore = "long-running: simulates ten minutes at 50 Hz"]
 fn player_ball_bounces_stably_for_ten_simulated_minutes() {
     const SIMULATED_SECONDS: usize = 10 * 60;

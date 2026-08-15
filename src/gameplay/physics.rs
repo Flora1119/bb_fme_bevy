@@ -13,6 +13,10 @@ pub const WALL_COLLISION_THRESHOLD: f32 = 0.9;
 pub const MIN_WALL_BOUNCE_SPEED: f32 = 12.0;
 pub const WALL_BOUNCE_DAMPING_RATIO: f32 = 0.8;
 
+// 벽을 향하는 속도가 이 값 이하라면,
+// 실제 충돌이 아니라 수치 오차 또는 스치기 접촉으로 취급합니다.
+const WALL_APPROACH_EPSILON: f32 = 0.01;
+
 pub const PLAYER_COLLIDER_RADIUS: f32 = 0.2 * BLOCK_WORLD_SIZE;
 pub const PLAYER_MASS: f32 = 5.0;
 pub const PLAYER_GRAVITY_SCALE: f32 = 3.0;
@@ -218,10 +222,16 @@ fn collect_started_solid_contacts(
                     // wall_axis 위에서 실제 법선 방향을 복원합니다.
                     let candidate_direction = wall_axis * wall_dot.signum();
 
-                    // 여러 벽이 동시에 감지될 경우,
-                    // 공이 가장 강하게 접근하던 벽을 선택합니다.
                     let candidate_impact_speed =
                         -started_contacts.incoming_velocity.dot(candidate_direction);
+
+                    // 양수일 때만 공이 해당 벽을 향해 접근 중입니다.
+                    //
+                    // 0에 가깝다면 벽을 평행하게 스치는 중이고,
+                    // 음수라면 이미 벽에서 멀어지는 중입니다.
+                    if candidate_impact_speed <= WALL_APPROACH_EPSILON {
+                        continue;
+                    }
 
                     let current_impact_speed = if started_contacts.wall_direction == Vec2::ZERO {
                         f32::NEG_INFINITY
@@ -251,8 +261,6 @@ fn apply_solid_contact_response(
         pending.0.clear();
         return;
     }
-
-    let wall_axis = Vec2::new(bounce_direction.y, -bounce_direction.x);
 
     // 이번 물리 틱의 결과를 꺼내고 Resource는 빈 상태로 만듭니다.
     let contacts_by_player = std::mem::take(&mut pending.0);
@@ -284,19 +292,24 @@ fn apply_solid_contact_response(
 
         // 3. 벽 접촉
         if started_contacts.wall_direction != Vec2::ZERO {
-            // Solver 전 입사 속도를 사용합니다.
-            let incoming_wall_speed = started_contacts.incoming_velocity.dot(wall_axis).abs();
+            // 선택된 벽을 향하던 실제 접근 속력입니다.
+            //
+            // collect_started_solid_contacts에서 양수임을 이미
+            // 확인했으므로 절댓값으로 방향 정보를 잃지 않습니다.
+            let incoming_wall_speed = -started_contacts
+                .incoming_velocity
+                .dot(started_contacts.wall_direction);
 
             let outgoing_wall_speed =
                 (incoming_wall_speed * WALL_BOUNCE_DAMPING_RATIO).max(MIN_WALL_BOUNCE_SPEED);
 
-            // Solver가 남긴 벽 축 속도를 먼저 제거합니다.
-            // 중력 축의 속도는 건드리지 않습니다.
-            let current_wall_speed = velocity.0.dot(wall_axis);
+            // Solver가 남긴 벽 법선 방향의 속도만 제거합니다.
+            // 중력 방향과 평행한 속도는 그대로 보존합니다.
+            let current_wall_speed = velocity.0.dot(started_contacts.wall_direction);
 
-            velocity.0 -= wall_axis * current_wall_speed;
+            velocity.0 -= started_contacts.wall_direction * current_wall_speed;
 
-            // 벽에서 공 쪽, 즉 벽 반대 방향으로 반동합니다.
+            // 벽에서 공 쪽으로 반동합니다.
             velocity.0 += started_contacts.wall_direction * outgoing_wall_speed;
         }
     }
