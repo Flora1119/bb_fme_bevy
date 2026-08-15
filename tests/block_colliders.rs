@@ -642,6 +642,300 @@ fn floor_contact_wins_over_wall_contact_at_a_corner() {
 }
 
 #[test]
+fn swept_ccd_prevents_high_speed_wall_tunneling() {
+    const START_X: f32 = 0.0;
+    const START_Y: f32 = 2.0;
+
+    const WALL_CENTER_X: f32 = 6.0;
+    const WALL_THICKNESS: f32 = 0.05;
+    const WALL_HEIGHT: f32 = 2.0;
+
+    // 50Hz에서는 한 물리 틱에 4칸을 이동합니다.
+    //
+    // 시작 위치가 x=2이고 벽이 x=4이므로,
+    // CCD가 없으면 공은 한 틱 만에 벽 너머 x=6까지 이동합니다.
+    const LAUNCH_SPEED: f32 = 200.0;
+
+    const POSITION_TOLERANCE: f32 = 0.1;
+    const VELOCITY_TOLERANCE: f32 = 0.5;
+
+    let expected_rebound_speed = LAUNCH_SPEED * WALL_BOUNCE_DAMPING_RATIO;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    assert!(
+        app.world().get::<SweptCcd>(ball).is_some(),
+        "player must have SweptCcd enabled"
+    );
+
+    // 이번 테스트에서는 Speculative Collision을 끕니다.
+    //
+    // 따라서 얇은 벽 관통을 막는 역할은
+    // SweptCcd가 단독으로 담당해야 합니다.
+    app.world_mut()
+        .resource_mut::<NarrowPhaseConfig>()
+        .default_speculative_margin = 0.0;
+
+    // 공을 정확한 시작 위치에 놓고 중력을 끈 뒤,
+    // 오른쪽으로 극고속 발사합니다.
+    app.world_mut().entity_mut(ball).insert((
+        Position(Vec2::new(START_X, START_Y)),
+        Transform::from_xyz(START_X, START_Y, 0.0),
+        LinearVelocity(Vec2::new(LAUNCH_SPEED, 0.0)),
+        GravityScale(0.0),
+    ));
+
+    // 일반 블록보다 훨씬 얇은 테스트용 벽입니다.
+    //
+    // BlockPhysicsBody를 함께 넣어야
+    // attach_block_colliders가 전체 타일 Collider를
+    // 추가하지 않습니다.
+    app.world_mut().spawn((
+        Name::new("Test ultra-thin wall"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(WALL_THICKNESS, WALL_HEIGHT),
+        Transform::from_xyz(WALL_CENTER_X, START_Y, 0.0),
+    ));
+
+    let expected_contact_x = WALL_CENTER_X - WALL_THICKNESS * 0.5 - PLAYER_COLLIDER_RADIUS;
+
+    let wall_far_face_x = WALL_CENTER_X + WALL_THICKNESS * 0.5;
+
+    // 첫 번째 고속 틱은 충돌 후보 AABB를 준비하는 틱입니다.
+    //
+    // 공은 x=0에서 x=4로 이동하며, 아직 x=6의 벽에는
+    // 도달하지 않아야 합니다. 이 틱이 끝날 때 Avian이
+    // 다음 이동 경로를 위한 속도 확장 AABB를 준비합니다.
+    app.update();
+
+    let primed_position = app
+        .world()
+        .get::<Position>(ball)
+        .expect("physics must update the player position")
+        .0;
+
+    assert!(
+        primed_position.x < expected_contact_x,
+        "preparation tick reached the wall too early: \
+     x={}, expected contact x={expected_contact_x}",
+        primed_position.x
+    );
+
+    let mut furthest_x = primed_position.x;
+    let mut wall_bounce = None;
+
+    // 이제 다음 틱의 x=4 → x=8 이동 경로가
+    // 얇은 벽 x=6을 지나므로 Swept CCD가 관통을 막아야 합니다.
+    //
+    // CCD가 충돌 시점으로 되돌린 뒤 실제 CollisionStart가
+    // 다음 틱에 만들어질 수도 있으므로 여유 있게 실행합니다.
+    for tick in 1..8 {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0;
+
+        furthest_x = furthest_x.max(position.x);
+
+        // 공의 중심이 벽 반대편 면을 넘어갔다면
+        // 얇은 벽을 관통한 것입니다.
+        assert!(
+            position.x < wall_far_face_x,
+            "player tunneled through the thin wall \
+             at tick {tick}: x={}, wall far face={wall_far_face_x}",
+            position.x
+        );
+
+        if velocity.x < -1.0 {
+            wall_bounce = Some((tick, position.x, velocity.x));
+
+            break;
+        }
+    }
+
+    let (bounce_tick, contact_x, rebound_velocity) =
+        wall_bounce.expect("SweptCcd prevented no usable wall response");
+
+    assert!(
+        (contact_x - expected_contact_x).abs() <= POSITION_TOLERANCE,
+        "expected high-speed wall contact x near \
+         {expected_contact_x}, found {contact_x}"
+    );
+
+    assert!(
+        (rebound_velocity + expected_rebound_speed).abs() <= VELOCITY_TOLERANCE,
+        "expected high-speed rebound velocity near \
+         -{expected_rebound_speed}, \
+         found {rebound_velocity}"
+    );
+
+    println!(
+        "swept CCD wall result: \
+         bounce tick {bounce_tick}, \
+         furthest x {furthest_x:.4}, \
+         contact x {contact_x:.4}, \
+         rebound velocity {rebound_velocity:.4}"
+    );
+}
+
+#[test]
+fn swept_ccd_prevents_high_speed_floor_tunneling() {
+    const START_X: f32 = 6.0;
+    const START_Y: f32 = 8.0;
+
+    const FLOOR_CENTER_Y: f32 = 2.0;
+    const FLOOR_THICKNESS: f32 = 0.05;
+    const FLOOR_WIDTH: f32 = 2.0;
+
+    // 50Hz에서 한 틱에 아래쪽으로 4칸 이동합니다.
+    const FALL_SPEED: f32 = 200.0;
+
+    const POSITION_TOLERANCE: f32 = 0.1;
+    const VELOCITY_TOLERANCE: f32 = 0.1;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    assert!(
+        app.world().get::<SweptCcd>(ball).is_some(),
+        "player must have SweptCcd enabled"
+    );
+
+    // 벽 테스트와 마찬가지로 예측 접촉을 끄고
+    // SweptCcd만으로 관통을 방지하는지 확인합니다.
+    app.world_mut()
+        .resource_mut::<NarrowPhaseConfig>()
+        .default_speculative_margin = 0.0;
+
+    // 기존 맵의 일반 바닥과 겹치지 않도록
+    // 공을 x=6 위치로 옮깁니다.
+    app.world_mut().entity_mut(ball).insert((
+        Position(Vec2::new(START_X, START_Y)),
+        Transform::from_xyz(START_X, START_Y, 0.0),
+        LinearVelocity(Vec2::new(0.0, -FALL_SPEED)),
+        GravityScale(0.0),
+    ));
+
+    // 높이가 0.05칸뿐인 매우 얇은 바닥입니다.
+    app.world_mut().spawn((
+        Name::new("Test ultra-thin floor"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(FLOOR_WIDTH, FLOOR_THICKNESS),
+        Transform::from_xyz(START_X, FLOOR_CENTER_Y, 0.0),
+    ));
+
+    let expected_contact_y = FLOOR_CENTER_Y + FLOOR_THICKNESS * 0.5 + PLAYER_COLLIDER_RADIUS;
+
+    let floor_bottom_face_y = FLOOR_CENTER_Y - FLOOR_THICKNESS * 0.5;
+
+    // 첫 번째 고속 틱은 다음 이동 경로를 Broad Phase에
+    // 준비시키는 틱입니다.
+    //
+    // 공은 y=8에서 y=4로 이동하며, 아직 y=2의 얇은 바닥에는
+    // 도달하지 않아야 합니다.
+    app.update();
+
+    let primed_position = app
+        .world()
+        .get::<Position>(ball)
+        .expect("physics must update the player position")
+        .0;
+
+    assert!(
+        primed_position.y > expected_contact_y,
+        "preparation tick reached the floor too early: \
+     y={}, expected contact y={expected_contact_y}",
+        primed_position.y
+    );
+
+    let mut lowest_y = primed_position.y;
+    let mut floor_bounce = None;
+
+    // 다음 틱의 y=4 → y=0 이동 경로가 얇은 바닥 y=2를
+    // 통과하므로 Swept CCD가 관통을 막아야 합니다.
+    for tick in 1..8 {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0;
+
+        lowest_y = lowest_y.min(position.y);
+
+        // 아래로 떨어지던 공의 중심이 얇은 바닥의
+        // 아래쪽 면까지 넘어갔다면 관통입니다.
+        assert!(
+            position.y > floor_bottom_face_y,
+            "player tunneled through the thin floor \
+             at tick {tick}: y={}, floor bottom={floor_bottom_face_y}",
+            position.y
+        );
+
+        if velocity.y >= MIN_BOUNCE_VELOCITY - VELOCITY_TOLERANCE {
+            floor_bounce = Some((tick, position.y, velocity.y));
+
+            break;
+        }
+    }
+
+    let (bounce_tick, contact_y, rebound_velocity) =
+        floor_bounce.expect("SweptCcd prevented no usable floor response");
+
+    assert!(
+        (contact_y - expected_contact_y).abs() <= POSITION_TOLERANCE,
+        "expected high-speed floor contact y near \
+         {expected_contact_y}, found {contact_y}"
+    );
+
+    assert!(
+        (rebound_velocity - MIN_BOUNCE_VELOCITY).abs() <= VELOCITY_TOLERANCE,
+        "expected constant floor rebound velocity near \
+         {MIN_BOUNCE_VELOCITY}, \
+         found {rebound_velocity}"
+    );
+
+    println!(
+        "swept CCD floor result: \
+         bounce tick {bounce_tick}, \
+         lowest y {lowest_y:.4}, \
+         contact y {contact_y:.4}, \
+         rebound velocity {rebound_velocity:.4}"
+    );
+}
+
+#[test]
 #[ignore = "long-running: simulates ten minutes at 50 Hz"]
 fn player_ball_bounces_stably_for_ten_simulated_minutes() {
     const SIMULATED_SECONDS: usize = 10 * 60;
