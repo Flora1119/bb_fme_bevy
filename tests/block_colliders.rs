@@ -223,3 +223,120 @@ fn player_ball_repeatedly_bounces_from_the_normal_block() {
          found {greatest_upward_velocity}"
     );
 }
+
+#[test]
+#[ignore = "long-running: simulates ten minutes at 50 Hz"]
+fn player_ball_bounces_stably_for_ten_simulated_minutes() {
+    const SIMULATED_SECONDS: usize = 10 * 60;
+    const MIN_EXPECTED_BOUNCES: u32 = 800;
+    const BOUNCE_SPEED_TOLERANCE: f32 = 0.05;
+    const MAX_TICKS_SINCE_LAST_BOUNCE: usize = 100;
+    const MAX_HORIZONTAL_DRIFT: f32 = 0.01;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    let tick_count = SIMULATED_SECONDS * PHYSICS_HZ as usize;
+
+    let mut previous_vertical_velocity = 0.0_f32;
+    let mut bounce_count = 0_u32;
+    let mut last_bounce_tick = None;
+
+    let mut weakest_bounce = f32::INFINITY;
+    let mut strongest_bounce = f32::NEG_INFINITY;
+
+    let mut lowest_y = f32::INFINITY;
+    let mut highest_y = f32::NEG_INFINITY;
+    let mut greatest_horizontal_drift = 0.0_f32;
+
+    for tick in 0..tick_count {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("dynamic body must have a velocity")
+            .0;
+
+        assert!(
+            position.x.is_finite() && position.y.is_finite(),
+            "player position became non-finite at tick {tick}: {position:?}"
+        );
+
+        assert!(
+            velocity.x.is_finite() && velocity.y.is_finite(),
+            "player velocity became non-finite at tick {tick}: {velocity:?}"
+        );
+
+        lowest_y = lowest_y.min(position.y);
+        highest_y = highest_y.max(position.y);
+
+        greatest_horizontal_drift = greatest_horizontal_drift.max((position.x - 2.0).abs());
+
+        let vertical_velocity = velocity.y;
+
+        if previous_vertical_velocity < -0.1
+            && vertical_velocity >= MIN_BOUNCE_VELOCITY - BOUNCE_SPEED_TOLERANCE
+        {
+            bounce_count += 1;
+            last_bounce_tick = Some(tick);
+
+            weakest_bounce = weakest_bounce.min(vertical_velocity);
+
+            strongest_bounce = strongest_bounce.max(vertical_velocity);
+        }
+
+        previous_vertical_velocity = vertical_velocity;
+    }
+
+    assert!(
+        bounce_count >= MIN_EXPECTED_BOUNCES,
+        "expected at least {MIN_EXPECTED_BOUNCES} bounces, \
+         observed {bounce_count}"
+    );
+
+    let last_bounce_tick = last_bounce_tick.expect("the player never bounced");
+
+    let ticks_since_last_bounce = tick_count - 1 - last_bounce_tick;
+
+    assert!(
+        ticks_since_last_bounce <= MAX_TICKS_SINCE_LAST_BOUNCE,
+        "the player appears to have stopped bouncing: \
+         last bounce was {ticks_since_last_bounce} ticks before the end"
+    );
+
+    assert!(
+        weakest_bounce >= MIN_BOUNCE_VELOCITY - BOUNCE_SPEED_TOLERANCE,
+        "bounce speed became too weak: {weakest_bounce}"
+    );
+
+    assert!(
+        strongest_bounce <= MIN_BOUNCE_VELOCITY + BOUNCE_SPEED_TOLERANCE,
+        "bounce speed gained unexpected energy: {strongest_bounce}"
+    );
+
+    assert!(
+        greatest_horizontal_drift <= MAX_HORIZONTAL_DRIFT,
+        "player drifted horizontally by \
+         {greatest_horizontal_drift}"
+    );
+
+    println!(
+        "ten-minute stability result: \
+         {bounce_count} bounces, \
+         bounce speed {weakest_bounce:.4}..{strongest_bounce:.4}, \
+         y range {lowest_y:.4}..{highest_y:.4}, \
+         horizontal drift {greatest_horizontal_drift:.6}"
+    );
+}
