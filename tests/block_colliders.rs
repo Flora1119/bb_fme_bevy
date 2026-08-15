@@ -3,7 +3,7 @@ use bb_fme_bevy::{
     block::BlockAssetConfig,
     domain::{GridPosition, ValidatedMap},
     gameplay::{
-        BLOCK_WORLD_SIZE, BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MapSpawnPlugin,
+        BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_BOUNCE_VELOCITY, MapSpawnPlugin,
         PHYSICS_HZ, PLAYER_COLLIDER_RADIUS, PLAYER_GRAVITY_SCALE, PLAYER_MASS, PlayerPhysicsBody,
         SOLID_COLLIDER_SIZE, SPIKE_SENSOR_OFFSET, SPIKE_SENSOR_SIZE, SpawnValidatedMap,
         SpikeSensorCollider,
@@ -177,7 +177,7 @@ fn player_ball_receives_the_unity_baseline_dynamic_body() {
 }
 
 #[test]
-fn player_ball_falls_and_settles_on_the_normal_block() {
+fn player_ball_repeatedly_bounces_from_the_normal_block() {
     let mut app = app_with_physics_bodies();
     let ball = app
         .world()
@@ -185,28 +185,41 @@ fn player_ball_falls_and_settles_on_the_normal_block() {
         .entity_at(GridPosition::new(2, 2))
         .expect("player ball must be indexed");
 
-    for _ in 0..100 {
+    let mut previous_vertical_velocity = 0.0_f32;
+    let mut greatest_upward_velocity = f32::NEG_INFINITY;
+    let mut bounce_count = 0_u32;
+
+    // 50Hz 기준 400틱은 약 8초입니다.
+    // 최소한 여러 차례의 바운스가 발생하는지 확인합니다.
+    for _ in 0..400 {
         app.update();
+
+        let vertical_velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("dynamic body must have a velocity")
+            .0
+            .y;
+
+        greatest_upward_velocity = greatest_upward_velocity.max(vertical_velocity);
+
+        // 낙하 중이던 속도가 최소 바운스 속도로 전환됐다면
+        // 한 번의 바운스로 계산합니다.
+        if previous_vertical_velocity < -0.1 && vertical_velocity >= MIN_BOUNCE_VELOCITY - 0.05 {
+            bounce_count += 1;
+        }
+
+        previous_vertical_velocity = vertical_velocity;
     }
 
-    let position = app
-        .world()
-        .get::<Position>(ball)
-        .expect("physics must update the player position");
-    let velocity = app
-        .world()
-        .get::<LinearVelocity>(ball)
-        .expect("dynamic body must have a velocity");
-    let expected_resting_y = 0.5 * BLOCK_WORLD_SIZE + PLAYER_COLLIDER_RADIUS;
+    assert!(
+        bounce_count >= 3,
+        "expected repeated floor bounces, observed {bounce_count}"
+    );
 
     assert!(
-        (position.0.y - expected_resting_y).abs() < 0.02,
-        "expected y near {expected_resting_y}, found {}",
-        position.0.y
-    );
-    assert!(
-        velocity.0.y.abs() < 0.05,
-        "expected settled vertical velocity, found {}",
-        velocity.0.y
+        greatest_upward_velocity >= MIN_BOUNCE_VELOCITY - 0.05,
+        "expected upward velocity near at least {MIN_BOUNCE_VELOCITY}, \
+         found {greatest_upward_velocity}"
     );
 }
