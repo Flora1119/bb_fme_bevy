@@ -5,7 +5,7 @@ use bb_fme_bevy::{
     gameplay::{
         BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_BOUNCE_VELOCITY, MapSpawnPlugin,
         PHYSICS_HZ, PLAYER_COLLIDER_RADIUS, PLAYER_GRAVITY_SCALE, PLAYER_MASS, PlayerPhysicsBody,
-        SOLID_COLLIDER_SIZE, SPIKE_SENSOR_OFFSET, SPIKE_SENSOR_SIZE, SpawnValidatedMap,
+        SOLID_COLLIDER_SIZE, SPIKE_SENSOR_OFFSET, SPIKE_SENSOR_SIZE, SolidBlock, SpawnValidatedMap,
         SpikeSensorCollider,
     },
     map::MapDocument,
@@ -221,6 +221,97 @@ fn player_ball_repeatedly_bounces_from_the_normal_block() {
         greatest_upward_velocity >= MIN_BOUNCE_VELOCITY - 0.05,
         "expected upward velocity near at least {MIN_BOUNCE_VELOCITY}, \
          found {greatest_upward_velocity}"
+    );
+}
+
+#[test]
+fn player_ball_stops_rising_when_it_hits_a_ceiling() {
+    const CEILING_CENTER_Y: f32 = 3.0;
+    const LAUNCH_SPEED: f32 = 12.0;
+    const VELOCITY_TOLERANCE: f32 = 0.05;
+    const POSITION_TOLERANCE: f32 = 0.05;
+
+    let mut app = app_with_physics_bodies();
+
+    let ball = app
+        .world()
+        .resource::<GridIndex>()
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player ball must be indexed");
+
+    // 테스트 전용 천장입니다.
+    //
+    // 개발용 JSON 맵은 수정하지 않고, 이 테스트 World에만
+    // 정적 SolidBlock을 하나 추가합니다.
+    app.world_mut().spawn((
+        Name::new("Test ceiling"),
+        SolidBlock,
+        BlockPhysicsBody,
+        RigidBody::Static,
+        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+        Transform::from_xyz(2.0, CEILING_CENTER_Y, 0.0),
+    ));
+
+    // 공을 천장 방향으로 발사합니다.
+    app.world_mut()
+        .get_mut::<LinearVelocity>(ball)
+        .expect("player must have a linear velocity")
+        .0 = Vec2::new(0.0, LAUNCH_SPEED);
+
+    let expected_contact_y =
+        CEILING_CENTER_Y - SOLID_COLLIDER_SIZE.y * 0.5 - PLAYER_COLLIDER_RADIUS;
+
+    let mut previous_vertical_velocity = LAUNCH_SPEED;
+    let mut ceiling_stop = None;
+
+    // 천장은 공 바로 위에 있으므로 30틱이면 충분합니다.
+    for _ in 0..30 {
+        app.update();
+
+        let position = app
+            .world()
+            .get::<Position>(ball)
+            .expect("physics must update the player position")
+            .0;
+
+        let vertical_velocity = app
+            .world()
+            .get::<LinearVelocity>(ball)
+            .expect("player must have a linear velocity")
+            .0
+            .y;
+
+        // 상승 중이던 공의 상승 속도가 제거된 순간을 찾습니다.
+        if previous_vertical_velocity > VELOCITY_TOLERANCE
+            && vertical_velocity <= VELOCITY_TOLERANCE
+        {
+            ceiling_stop = Some((position.y, vertical_velocity));
+
+            break;
+        }
+
+        previous_vertical_velocity = vertical_velocity;
+    }
+
+    let (stop_y, stop_velocity) = ceiling_stop.expect("player did not stop at the ceiling");
+
+    assert!(
+        (stop_y - expected_contact_y).abs() <= POSITION_TOLERANCE,
+        "expected ceiling contact y near \
+         {expected_contact_y}, found {stop_y}"
+    );
+
+    assert!(
+        stop_velocity <= VELOCITY_TOLERANCE,
+        "expected no remaining upward velocity, \
+         found {stop_velocity}"
+    );
+
+    assert!(
+        stop_velocity >= -1.0,
+        "expected the ceiling to stop the player \
+         without a strong downward rebound, \
+         found {stop_velocity}"
     );
 }
 
