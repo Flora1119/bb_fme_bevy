@@ -1,0 +1,10 @@
+{
+	"editor.unicodeHighlight.nonBasicASCII": "inUntrustedWorkspace",
+	"editor.unicodeHighlight.includeComments": false,
+	"editor.unicodeHighlight.allowedLocales": {
+		"_os": false,
+		"_vscode": false
+	},
+	"editor.unicodeHighlight.ambiguousCharacters": false,
+	"editor.unicodeHighlight.includeStrings": false
+}

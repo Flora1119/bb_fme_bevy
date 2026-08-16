@@ -1,0 +1,994 @@
+Codex 5.6 Sol Extra High와의 대화
+====================
+일단 교체 작업을 대략적인 로드맵과 전체 로드맵으로 구성한 다음 한 단계씩 진행하고 싶어용!
+Rust를 어느정도 배워서 미니게임 여러개 만들어봤지만 Bevy엔진으로 게임 만드는건 처음이라서용ㅎㅎ
+====================
+좋아요! 그러면 이 작업은 **“Unity 제거”가 아니라 “Bevy판을 독립적으로 완성한 뒤 마지막에 Unity판을 은퇴시키는 프로젝트”**로 진행하면 됩니다.
+
+전체를 10단계로 나누고, 매 단계마다 실행 가능한 결과물을 만들겠습니다. Rust를 이미 다뤄보셨으니 Bevy를 따로 오래 공부하기보다, 필요한 개념을 단계별로 배우면서 바로 적용하는 방식이 가장 좋습니다.
+
+## 대략적인 로드맵
+
+```text
+0. 이전 기준 확정
+       ↓
+1. Bevy 프로젝트 기반 구축
+       ↓
+2. Unity JSON 맵 호환
+       ↓
+3. 공 물리 프로토타입
+       ↓
+4. 기본 게임 수직 단면 완성
+       ↓
+5. 전체 블록 시스템 이식
+       ↓
+6. 게임 상태·재시작·테스트 모드
+       ↓
+7. 맵 에디터 재구현
+       ↓
+8. 메뉴·사용자 맵·서버 연동
+       ↓
+9. PC·Android 최적화와 출시
+       ↓
+10. Unity판 보관 및 Bevy판 전환
+```
+
+가장 중요한 중간 목표는 이것입니다.
+
+> 기존 JSON 맵 하나를 읽고, 공이 움직이며, 별을 먹고, 가시에 죽고, 재시작할 수 있는 Bevy 실행 파일.
+
+이 ‘수직 단면’이 완성되면 프로젝트의 가장 큰 기술적 위험은 해결된 것입니다.
+
+# 전체 로드맵
+
+## 0단계: 이전 기준과 범위 확정
+
+아직 Bevy 코드를 작성하지 않고, Unity판을 정답 자료로 정리합니다.
+
+작업:
+
+- 현재 클라이언트 `v1.0.3`을 기준 버전으로 지정
+- 구현된 기능과 미완성 기능 구분
+- 기존 버그 중 이식할 것과 고칠 것 구분
+- JSON 맵 포맷 문서화
+- 전체 블록과 옵션 목록 작성
+- 서버 API 목록과 요청·응답 형식 문서화
+- 대표 테스트 맵 선정
+- Unity 물리 설정과 게임 상수 기록
+
+대표 물리 테스트 맵도 준비합니다.
+
+- 평지 연속 바운스
+- 벽·천장 충돌
+- 경사·곡선 블록
+- 중력 반전
+- 점프·대시·직진
+- 텔레포트·포탈
+- 이동 블록
+- 레이저·거울
+- 기어
+- 스윙·클론
+
+완료 조건:
+
+- 무엇을 이식해야 하는지 체크리스트로 전부 확인 가능
+- JSON과 서버 API 규격이 Unity 코드 없이도 이해 가능
+
+## 1단계: Bevy 프로젝트 기반 구축
+
+Unity 프로젝트는 그대로 두고 별도의 `BB_FME_Bevy` 프로젝트를 만듭니다.
+
+초기 기술 구성:
+
+- Rust workspace
+- Bevy 0.19 고정
+- `Cargo.lock` 저장
+- PC 개발 빌드 우선
+- 로그와 오류 처리
+- 기본 설정 파일
+- 자동 포매팅과 Clippy
+- 최소 단위 테스트
+- 빠른 개발 빌드를 위한 linker 설정
+
+이 단계에서 배우는 Bevy 개념:
+
+- `App`
+- Entity와 Component
+- System과 Schedule
+- Resource
+- Plugin
+- State
+- Event 또는 Observer
+- Asset Server
+- `Update`와 `FixedUpdate` 성격의 스케줄 분리
+
+첫 결과물:
+
+- 창 열기
+- 2D 카메라
+- 스프라이트 출력
+- 키보드·마우스 입력
+- 게임 상태 전환
+- 로딩 화면
+
+완료 조건:
+
+- PC에서 항상 동일하게 빌드·실행
+- 빈 게임 상태와 플레이 상태를 전환 가능
+
+## 2단계: 데이터와 에셋 호환
+
+게임플레이보다 먼저 기존 맵을 읽을 수 있도록 만듭니다.
+
+추천 모듈 구조:
+
+```text
+BB_FME_Bevy/
+├─ crates/
+│  ├─ bbfme_core       공통 타입과 설정
+│  ├─ bbfme_map        JSON 맵 로딩·저장
+│  ├─ bbfme_game       게임 규칙
+│  ├─ bbfme_blocks     블록 구현
+│  ├─ bbfme_net        서버 통신
+│  └─ bbfme_editor     맵 에디터
+└─ app/                실제 Bevy 실행 프로그램
+```
+
+작업:
+
+- `MapJsonDataInfo`를 Rust `serde` 구조체로 이식
+- 기존 맵 JSON 역직렬화
+- 다시 JSON으로 저장
+- 좌표·방향·블록 옵션 보존 검사
+- `block_assets_config.json` 호환
+- 기존 PNG와 폰트 로딩
+- 블록 이름과 에셋을 연결하는 레지스트리 구현
+- 잘못된 맵 데이터 검증기 작성
+
+중요 원칙:
+
+- 기존 블록 ID인 `fb_jump`, `ob_gear` 등을 변경하지 않음
+- JSON에 `schema_version`을 추가하더라도 구버전 맵은 계속 읽음
+- Rust 내부에서는 타입을 안전하게 사용하되 저장 형식은 호환 유지
+
+완료 조건:
+
+- 기존 JSON 맵을 읽고 동일한 의미로 다시 저장
+- 존재하지 않는 블록과 잘못된 옵션을 명확한 오류로 보고
+
+## 3단계: 물리 엔진 검증
+
+기본 후보는 `bevy_rapier2d`입니다. Rapier는 Bevy 2D 통합, CCD, 센서, 충돌 이벤트, contact hook, 디버그 렌더링을 제공합니다. [Rapier 문서](https://rapier.rs/docs/user_guides/rust/getting_started_bevy/)
+
+이 단계에서는 물리 엔진을 바로 확정하지 않고 작은 실험을 합니다.
+
+실험 대상:
+
+- Rapier
+- 필요할 경우 Avian 비교
+- 일부 움직임을 자체 물리로 구현하는 혼합 방식
+
+측정할 항목:
+
+- 공의 연속 바운스 안정성
+- 벽 모서리 충돌
+- 고속 대시 시 관통 여부
+- 이동 블록 위 충돌
+- 중력 반전
+- 모바일 성능
+- 구현 복잡도
+- 디버깅 편의성
+
+추천 구조:
+
+```text
+PhysicsPlugin
+├─ BallBody
+├─ CollisionLayers
+├─ ContactClassification
+├─ BounceRules
+├─ MovementRules
+└─ PhysicsBackend
+```
+
+게임 코드가 Rapier 타입에 직접 강하게 묶이지 않게 구성합니다. 그러면 물리 엔진을 교체하더라도 블록과 게임 규칙 전체를 다시 작성하지 않아도 됩니다.
+
+물리 timestep은 처음부터 고정하지 않고 `60Hz`, `120Hz`, CCD 조합을 비교합니다. Unity의 50Hz를 복제할 의무가 없으므로 새 엔진에서 가장 안정적인 값을 선택합니다.
+
+완료 조건:
+
+- 10분 이상 연속 바운스해도 불안정하지 않음
+- 고속 이동 시 치명적인 블록 관통이 없음
+- 물리 엔진 최종 선택 기록 작성
+
+## 4단계: 기본 게임 수직 단면
+
+이제 작은 게임 하나를 완성합니다.
+
+구현 범위:
+
+- 공 생성
+- 좌우 이동
+- 바운스
+- 카메라 추적
+- 일반 블록
+- 별
+- 가시
+- 점프 블록
+- 맵 경계
+- 사망
+- 재시작
+- 클리어
+- 간단한 타이머
+- 키보드·마우스 입력
+
+기존 맵 JSON으로 실행해야 합니다. 테스트 전용 하드코딩 맵을 최종 구조로 사용하면 안 됩니다.
+
+완료 조건:
+
+- Unity에서 만든 기본 맵을 Bevy에서 플레이
+- 사망·재시작·클리어까지 한 사이클 완성
+- headless 테스트로 일부 게임 규칙 검증
+
+이 지점이 첫 번째 큰 성공 체크포인트입니다.
+
+## 5단계: 전체 블록 시스템 이식
+
+한꺼번에 옮기지 않고 의존성이 낮은 순서로 진행합니다.
+
+### 5-A: 정적 블록
+
+- 일반 블록
+- 곡선·부분 블록
+- 가시
+- 별·빈 별
+- 기본 기능 블록
+
+### 5-B: 플레이어 능력
+
+- 점프
+- 대시
+- 직진
+- 벽 통과
+- 순간이동
+- 원형 이동
+- 중력 반전
+- 클론
+- 스윙
+
+### 5-C: 스위치와 상태 블록
+
+- 전기 스위치
+- 블록 스위치
+- 별 스위치
+- 변화 블록
+- 투명 별
+- 활성화·비활성화 규칙
+
+### 5-D: 이동·동적 블록
+
+- 리프트
+- 이동 블록
+- 끈끈이 블록
+- 낙석
+- 대포와 포탄
+- 점핑 장애물
+- 다트
+
+### 5-E: 고난도 블록
+
+- 텔레포트
+- 왕복 포탈
+- 기어
+- 레이저
+- 거울
+- 스윙과 이동 블록의 복합 상호작용
+
+각 블록마다 다음을 함께 만듭니다.
+
+- 독립 테스트 맵
+- 정상 동작 테스트
+- 재시작 후 상태 복구 테스트
+- 다른 블록과의 조합 테스트
+- 디버그 정보 표시
+
+완료 조건:
+
+- `block_assets_config.json`의 모든 블록 지원
+- 모든 옵션 지원
+- 알려진 미지원 블록이 목록에 남지 않음
+
+## 6단계: 게임 상태와 테스트 모드
+
+Unity의 많은 `static` 상태를 Bevy Resource와 Component로 재설계합니다.
+
+주요 상태:
+
+- 앱 상태
+- 현재 게임 모드
+- 플레이 세션
+- 맵 원본 상태
+- 플레이 중 변경 상태
+- 사용자 정보
+- 선택된 온라인 맵
+- 입력 상태
+- 타이머·클리어 상태
+
+재시작은 현재 오브젝트를 하나씩 원상 복구하기보다 다음 방식이 안전합니다.
+
+```text
+MapDefinition
+     ↓ 세션 시작
+PlayWorld 생성
+     ↓ 사망·재시작
+PlayWorld 제거
+     ↓
+MapDefinition에서 다시 생성
+```
+
+완료 조건:
+
+- 같은 맵을 100회 재시작해도 상태 누수 없음
+- 에디터 테스트 종료 후 편집 데이터가 정확히 복원됨
+- 포탈·레이저·이동 블록도 초기화됨
+
+## 7단계: 맵 에디터 재구현
+
+가장 큰 작업 중 하나이므로 다시 여러 단계로 나눕니다.
+
+### 7-A: 기본 편집
+
+- 격자
+- 카메라 이동
+- 블록 팔레트
+- 배치·삭제
+- 회전
+- 맵 크기 변경
+
+### 7-B: 고급 편집
+
+- 블록 옵션
+- 스위치 초기 상태
+- 시간 제한
+- 타임어택 설정
+- 포탈·텔레포트 연결 검증
+- 맵 유효성 검사
+
+### 7-C: 사용성 개선
+
+- Undo·Redo
+- 선택 영역
+- 복사·붙여넣기
+- 잘못된 블록 강조
+- 저장 전 검사 결과
+- 자동 저장 또는 복구 파일
+
+### 7-D: 테스트와 저장
+
+- 즉시 플레이 테스트
+- 테스트 종료 후 편집 화면 복귀
+- JSON 저장·불러오기
+- 썸네일 렌더링
+- 서버 저장 슬롯
+
+모바일에서도 사용하는 에디터이므로 런타임 UI는 Bevy UI를 중심으로 구성하는 편이 안전합니다. Bevy 0.19에는 텍스트 입력과 에디터용 위젯이 추가됐지만 아직 일부 기능은 초기 단계이므로 필요한 UI를 직접 보완해야 합니다. [Bevy 0.19 기능 설명](https://bevy.org/news/bevy-0-19/)
+
+완료 조건:
+
+- Unity 에디터 없이 새 맵 제작 가능
+- Bevy에서 만든 맵을 Unity판에서도 읽을 수 있음
+- Unity에서 만든 맵을 Bevy 에디터에서 수정 가능
+
+## 8단계: 메뉴·온라인 기능·서버
+
+먼저 서버 없이 Mock 응답으로 UI를 완성하고, 이후 실제 서버를 연결합니다.
+
+클라이언트 작업:
+
+- 로딩·메인 메뉴
+- 설정 저장
+- 로그인·회원가입
+- 프로필
+- 사용자 맵 목록
+- 검색·정렬·페이지네이션
+- 맵 상세 정보
+- 좋아요·평점·댓글
+- 타임어택 기록
+- 업데이트 노트
+- 네트워크 오류와 오프라인 처리
+
+개선할 점:
+
+- 고정 IP 제거
+- 개발·운영 URL을 설정 파일로 분리
+- HTTPS 적용
+- 요청 timeout
+- 공통 오류 형식
+- 토큰 기반 사용자 인증
+- 사용자 번호나 닉네임만 믿는 요청 제거
+- 재시도와 중복 전송 방지
+
+서버는 별도 트랙으로 진행합니다.
+
+```text
+클라이언트 개발
+    └─ Mock API 사용
+
+서버 개발
+    ├─ 기존 API 명세 복원
+    ├─ Axum + MySQL 구현
+    └─ 인증·보안 보강
+```
+
+완료 조건:
+
+- 서버가 꺼져도 게임이 멈추거나 무한 로딩되지 않음
+- 온라인 기능 전체 지원
+- 기존 사용자 및 맵 DB를 보존할 수 있는 이전 절차 확보
+
+## 9단계: PC·Android 대응
+
+초기에는 PC만 지원하고 게임이 완성된 뒤 Android를 붙입니다.
+
+PC:
+
+- Windows 우선
+- Linux 개발 빌드
+- 해상도·창 모드
+- 키보드·마우스·게임패드
+- 저장 경로
+- 배포 패키지
+
+Android:
+
+- 터치 입력
+- 가로 화면
+- Safe Area
+- 일시 정지·백그라운드 복귀
+- 네트워크 권한
+- 앱 저장 공간
+- DPI와 해상도
+- 발열·배터리·메모리
+- ARM64 빌드
+- APK/AAB
+- 서명과 버전 코드
+
+Bevy는 공식 Android 빌드 예제를 제공하지만 `cargo-ndk`와 Gradle 설정이 필요하므로 Unity보다 수작업이 많습니다. [Bevy 공식 Android 절차](https://github.com/bevyengine/bevy/blob/main/examples/README.md)
+
+완료 조건:
+
+- PC와 Android에서 같은 JSON 맵 실행
+- 터치와 키보드의 게임 규칙이 동일
+- 중급 모바일 기기에서 안정적인 프레임 유지
+
+## 10단계: 출시와 Unity판 은퇴
+
+마지막에만 Unity판을 은퇴시킵니다.
+
+- 전체 맵 호환성 검사
+- 기존 사용자 계정과 기록 검사
+- 비공개 알파
+- 맵 제작자 대상 베타
+- 크래시·성능 수집
+- 서버 마이그레이션
+- 정식 Bevy 빌드
+- Unity 최종 소스와 빌드 보관
+- Unity 프로젝트를 읽기 전용 아카이브로 전환
+
+Unity 파일을 삭제할 필요는 없습니다. 완성된 역사 자료이자 Bevy판의 동작 기준으로 영구 보존하는 편이 좋습니다.
+
+# 학습 방식
+
+Bevy를 먼저 전부 공부하고 시작할 필요는 없습니다.
+
+| 작업 단계 | 함께 익힐 Bevy 개념 |
+|---|---|
+| 프로젝트 기반 | App, Plugin, ECS |
+| JSON 로딩 | Asset, Resource, serde |
+| 공 물리 | Schedule, Fixed timestep, Event |
+| 블록 | Component, Query, Observer |
+| 상태 복구 | State, Entity lifecycle |
+| 에디터 | Picking, UI, 카메라 좌표 변환 |
+| 서버 | Async task, channel |
+| Android | Window, touch, lifecycle |
+
+이렇게 하면 학습이 곧 실제 프로젝트 코드가 됩니다.
+
+# 진행 원칙
+
+앞으로 매 단계는 다음 순서로 진행하면 좋습니다.
+
+1. 단계 목표 설명
+2. 설계안 확인
+3. 아주 작은 실행 가능한 구현
+4. 테스트
+5. 직접 실행할 방법 안내
+6. 발견한 문제 수정
+7. 완료 체크
+8. 다음 단계 이동
+
+한 단계가 완료되기 전에 다음 기능을 마구 추가하지 않겠습니다. 특히 물리, JSON 호환, 재시작은 이후 모든 기능의 기반이므로 엄격하게 검증해야 합니다.
+
+첫 실행 단계는 **0단계: 이전 기준 확정**입니다. 여기서 실제 코드를 바꾸지 않고 `BB_FME`의 맵 스키마, 블록 명세, 서버 API, 테스트 맵 목록을 문서화한 뒤 `BB_FME_Bevy`의 설계 기준을 세우면 됩니다.
+
+======================
+앗, 교체하기 전에 기존 유니티 프로젝트의 구성과 구조를 아예 다른 방법이나 더 좋은 방향으로 작동 방식이나 매커니즘을 바꾸는 방법이 있을지 궁금해용! 제가 만든 프로젝트 스크립트들 보다 더 나은 방법이 있는지 너무 궁금해용...!
+======================
+
+네, 있습니다! 현재 프로젝트도 나쁜 구조는 아니지만 기능이 계속 추가되면서 **데이터·Unity 오브젝트·게임 상태·UI·서버 통신이 서로 얽힌 형태**로 성장했습니다. 초기 개인 프로젝트에서 아주 자연스럽게 생기는 구조예요.
+
+Bevy판에서는 단순히 C#을 Rust로 번역하기보다, 몇 가지 작동 원리를 근본적으로 바꾸는 편이 훨씬 좋습니다.
+
+## 현재 구조의 핵심 문제
+
+| 현재 방식 | 생길 수 있는 문제 | 추천 방향 |
+|---|---|---|
+| 전역 `static` 상태 | 씬 전환·재시작 후 상태 잔존 | 명확한 소유자를 가진 세션 상태 |
+| 맵 데이터 안에 `GameObject` 저장 | 데이터와 화면 표현 결합 | 맵 원본과 런타임 엔티티 분리 |
+| 블록을 문자열 `switch`로 판별 | 블록 추가 시 여러 파일 수정 | 블록 레지스트리와 조합형 컴포넌트 |
+| 편집 데이터로 게임도 실행 | 플레이 중 원본까지 변형 | 원본에서 별도 PlayWorld 생성 |
+| 변경된 블록을 하나씩 복원 | 초기화 누락 가능 | 런타임 월드 폐기 후 재생성 |
+| UI가 서버 요청까지 직접 수행 | 화면·통신·비즈니스 규칙 결합 | UI → 서비스 → 서버 계층 분리 |
+| 배치·삭제 시 각종 카운터 수동 갱신 | 데이터 불일치 | 원본 데이터에서 파생값 계산 |
+| 물리 콜백에서 바로 로직 실행 | 충돌 순서에 따라 결과 변화 | 충돌 수집 후 정해진 순서로 처리 |
+
+가장 큰 문제는 [BlockData](/home/flora1119/unity_projects/BB_FME/Assets/Scripts/Utils/MapData.cs:10)에 `GameObject obj`가 들어 있고, `CurrentBlockData`가 에디터 원본이면서 동시에 플레이 상태로도 사용된다는 점입니다.
+
+이 때문에 이동한 블록의 좌표를 되돌리고, 비활성 블록을 다시 켜고, 포탈 좌표를 별도로 복구하는 [PlayState.cs](/home/flora1119/unity_projects/BB_FME/Assets/Scripts/Utils/PlayState.cs:358) 같은 복잡한 초기화가 필요해졌습니다.
+
+# 가장 추천하는 새 구조
+
+```mermaid
+flowchart LR
+    JSON["기존 맵 JSON"] --> Adapter["호환 변환기"]
+    Adapter --> Definition["MapDefinition\n변하지 않는 맵 원본"]
+
+    Definition --> Editor["EditorSession"]
+    Editor --> Definition
+
+    Definition --> Spawn["PlayWorld 생성"]
+    Spawn --> Simulation["Game Simulation\n순수 게임 규칙"]
+
+    Input["키보드·터치"] --> Simulation
+    Physics["충돌·Shape Cast"] --> Simulation
+    Simulation --> View["Bevy 화면·사운드·UI"]
+
+    Api["서버 API"] --> Repository["Map/User Repository"]
+    Repository --> Definition
+```
+
+핵심은 맵 원본, 플레이 상태, 화면 표현을 완전히 분리하는 것입니다.
+
+## 1. 맵 원본을 불변 데이터로 관리
+
+```rust
+struct MapDefinition {
+    settings: MapSettings,
+    blocks: Vec<BlockPlacement>,
+}
+
+struct BlockPlacement {
+    id: BlockId,
+    kind: BlockKind,
+    grid_pos: GridPos,
+    direction: Direction,
+    options: BlockOptions,
+}
+```
+
+여기에는 Bevy `Entity`, 스프라이트, 물리 Collider 같은 엔진 객체가 들어가지 않습니다.
+
+게임 시작 시:
+
+```text
+MapDefinition
+    ↓ 복제·변환
+PlayWorld 생성
+    ↓ 플레이 중 자유롭게 변경
+사망 또는 재시작
+    ↓
+PlayWorld 전체 제거
+    ↓
+MapDefinition에서 다시 생성
+```
+
+이러면 이동 블록, 먹은 별, 스위치, 레이저, 복제공을 일일이 원상 복구할 필요가 없습니다.
+
+## 2. 수동 상태값을 가능한 한 제거
+
+현재 에디터에는 다음 상태가 따로 저장됩니다.
+
+- `isBallPlaced`
+- `starCount`
+- `isEmptyStarPlaced`
+- `isStarSwitchPlaced`
+- 텔레포트 출구 배치 여부
+- 포탈 A/B 좌표
+- 각종 특수 블록 위치 목록
+
+그런데 이 값들은 실제 블록 목록과 불일치할 수 있습니다.
+
+예를 들어 별 개수는 별 블록을 배치할 때 증가시키고 삭제할 때 감소시킵니다. 특정 경로에서 감소를 빠뜨리면 실제 별은 3개인데 `starCount`는 4가 될 수 있습니다.
+
+더 좋은 방식은 필요할 때 계산하는 것입니다.
+
+```rust
+fn star_count(map: &MapDefinition) -> usize {
+    map.blocks
+        .iter()
+        .filter(|block| block.kind.counts_as_star())
+        .count()
+}
+```
+
+성능 때문에 캐시가 필요하더라도 원본은 블록 목록 하나이고, 캐시는 자동으로 갱신돼야 합니다.
+
+## 3. 맵 편집을 Command 방식으로 변경
+
+현재 [ControlPanel.cs](/home/flora1119/unity_projects/BB_FME/Assets/Scripts/MapEditor/ControlPanel.cs:208)는 블록을 배치하면서 다음을 한꺼번에 수행합니다.
+
+- 프리팹 생성
+- 블록 데이터 추가
+- 공·별 카운터 변경
+- 포탈·텔레포트 갱신
+- 옵션 생성
+- 화면 변경
+
+Bevy판에서는 모든 편집을 명령으로 표현하는 게 좋습니다.
+
+```rust
+enum EditorCommand {
+    PlaceBlock(BlockPlacement),
+    RemoveBlock(BlockId),
+    MoveBlock {
+        id: BlockId,
+        to: GridPos,
+    },
+    RotateBlock {
+        id: BlockId,
+        direction: Direction,
+    },
+    SetOption {
+        id: BlockId,
+        option: BlockOptionValue,
+    },
+    ResizeMap(MapSize),
+}
+```
+
+처리 흐름은 다음과 같습니다.
+
+```text
+사용자 클릭
+  → EditorCommand 생성
+  → MapDefinition 변경
+  → 유효성 검사
+  → 화면에 변경 반영
+```
+
+장점은 상당히 큽니다.
+
+- Undo/Redo 구현이 쉬워짐
+- 자동 저장 가능
+- 테스트 작성 가능
+- UI와 맵 로직 분리
+- 모바일과 PC 입력이 같은 명령 사용
+- 서버 협업 편집으로 확장 가능
+
+## 4. 문자열 블록을 조합형 동작으로 변경
+
+현재는 여러 파일에 이런 분기가 존재합니다.
+
+```csharp
+switch (blockName)
+{
+    case "fb_fr": ...
+    case "ob_lift": ...
+    case "ob_cannon": ...
+    case "ob_gear": ...
+}
+```
+
+문자열 ID는 기존 JSON 호환 경계에서만 유지하면 됩니다.
+
+```text
+"ob_cannon"
+    ↓ BlockRegistry
+Collider
+Steppable
+Cannon
+Cooldown
+ProjectileSpawner
+Direction
+```
+
+예를 들면 다음처럼 블록을 기능의 조합으로 표현할 수 있습니다.
+
+| 블록 | 기능 컴포넌트 |
+|---|---|
+| 별 | `Collectible + CountsForClear` |
+| 가시 | `DamageOnContact` |
+| 점프 블록 | `Steppable + BounceImpulse` |
+| 대포 | `Steppable + ProjectileSpawner + Cooldown` |
+| 스위치 | `Steppable + SwitchEmitter(Channel)` |
+| 전기 문 | `SwitchReceiver(Channel) + ColliderToggle` |
+| 레이저 | `LaserEmitter + Damage/Barrier` |
+| 거울 | `LaserReflector + OpenDirections` |
+| 리프트 | `Movable + PathFollower` |
+
+새 블록이 기존 기능의 조합이라면 새로운 대형 스크립트를 만들 필요가 없어집니다.
+
+지금 작성하신 `IActivatable`, `ISteppable`, `ITriggerable`은 이미 이 방향으로 가려던 좋은 설계입니다. Bevy에서는 이를 상속 대신 ECS 컴포넌트 조합으로 발전시키면 됩니다.
+
+## 5. 블록을 좌표가 아니라 안정적인 ID로 추적
+
+현재 이동 블록은 `Dictionary<Vector2Int, BlockData>`의 키 자체를 변경합니다. 그래서 포탈이나 텔레포트가 이동하면 관련 좌표도 별도로 고쳐야 합니다.
+
+더 좋은 구조는 다음입니다.
+
+```rust
+type BlockId = u64;
+
+struct BlockStore {
+    blocks: HashMap<BlockId, RuntimeBlock>,
+    occupancy: HashMap<GridPos, BlockId>,
+}
+```
+
+- `BlockId`는 플레이 동안 변하지 않음
+- 현재 좌표는 블록 데이터에 저장
+- `occupancy`는 좌표 검색을 위한 인덱스
+- 블록이 이동해도 ID와 연결 관계는 유지
+
+포탈 연결도 좌표 쌍보다 ID로 저장할 수 있습니다.
+
+```rust
+struct PortalLink {
+    entrance_a: BlockId,
+    entrance_b: BlockId,
+}
+```
+
+그러면 포탈이 이동해도 연결 정보는 갱신할 필요가 없습니다. 현재 작업 중인 포탈 버그에도 특히 유리한 방식입니다.
+
+## 6. 충돌을 즉시 처리하지 않고 한 틱 동안 수집
+
+현재 [BallBase.cs](/home/flora1119/unity_projects/BB_FME/Assets/Scripts/Blocks/Core/BallBase.cs:49)는 Unity 충돌 콜백 안에서 즉시 다음을 처리합니다.
+
+- 바닥·천장·벽 판정
+- 공 속도 변경
+- 블록 밟기
+- 블록 기능 실행
+
+모서리에서 여러 접촉점이 들어오거나 같은 틱에 별·포탈·가시가 함께 감지되면 순서 의존 문제가 생길 수 있습니다.
+
+새 방식은 다음처럼 구성할 수 있습니다.
+
+```text
+1. 입력 수집
+2. 능력 상태 갱신
+3. 물리 이동
+4. 모든 충돌·트리거 수집
+5. 접촉점 분류
+6. 우선순위에 따라 게임 규칙 실행
+7. 월드 변경사항 일괄 적용
+8. 화면·사운드 갱신
+```
+
+예를 들어 우선순위를 명시할 수 있습니다.
+
+```text
+사망
+→ 포탈·텔레포트
+→ 아이템
+→ 스위치
+→ 바닥 반동
+→ 일반 접촉 효과
+```
+
+Unity나 Rapier의 콜백 호출 순서가 바뀌어도 게임 결과를 일정하게 만들 수 있습니다.
+
+# 물리 방식도 근본적으로 바꿀 수 있습니다
+
+현재처럼 동적 Rigidbody를 사용하는 방법 외에도 세 가지 선택지가 있습니다.
+
+## A. 일반 물리 엔진 + 속도 보정
+
+현재 Unity 구조와 가장 비슷합니다.
+
+- Rapier가 공과 블록을 충돌시킴
+- 게임 코드가 바운스와 최대 속도를 보정
+- 구현이 가장 빠름
+- 복잡한 모서리 상황은 엔진 결과에 영향을 받음
+
+## B. Shape Cast 기반 사용자 정의 공 컨트롤러
+
+이 프로젝트에는 이 방식이 가장 매력적입니다.
+
+매 고정 틱마다:
+
+```text
+중력과 입력으로 속도 계산
+→ 공 모양을 이동 방향으로 Shape Cast
+→ 가장 먼저 만나는 충돌점 탐색
+→ 충돌점 바로 앞까지 이동
+→ 법선으로 바닥·벽·천장 분류
+→ 직접 반동 속도 계산
+→ 남은 시간만큼 다시 이동
+```
+
+Rapier는 충돌체 탐색과 Shape Cast만 담당하고, 공의 최종 위치와 속도는 게임이 결정합니다.
+
+장점:
+
+- 바운스 높이가 일정함
+- 모서리 판정을 직접 통제
+- 고속 이동 관통을 줄이기 쉬움
+- 원작과 다른 새로운 손맛 제작 가능
+- 엔진 업데이트에 덜 영향받음
+- 리플레이와 테스트가 쉬움
+
+단점:
+
+- 이동 플랫폼의 상대 속도
+- 스윙
+- 곡면 블록
+- 여러 충돌 동시 발생
+
+이 부분은 직접 구현해야 합니다.
+
+그래도 BB_FME의 공은 다른 물체와 현실적인 질량 교환을 거의 하지 않기 때문에, 저는 **B 방식을 가장 유력한 최종 구조**로 봅니다.
+
+## C. 완전한 자체 물리 엔진
+
+충돌 탐색부터 해결까지 전부 구현하는 방식입니다.
+
+완전한 제어와 결정성을 얻지만 곡면, 이동 블록, CCD, 스윙까지 처리하려면 프로젝트 하나가 더 생길 정도로 어렵습니다. 연구 목적이 아니라면 추천하지 않습니다.
+
+# 능력은 상태 머신으로 관리
+
+현재 공에는 `isStraightMoving`, `isSticky`, `isDead`, 중력 방향과 여러 아이템 상태가 분산되어 있습니다.
+
+이를 명시적인 상태로 만들면 조합 충돌을 줄일 수 있습니다.
+
+```rust
+enum LocomotionMode {
+    Bouncing,
+    Straight {
+        direction: Vec2,
+        speed: f32,
+    },
+    Sticky {
+        surface: SurfaceId,
+    },
+    Swinging {
+        anchor: Vec2,
+        rope_length: f32,
+    },
+    Teleporting,
+    Dead,
+}
+```
+
+예를 들어 스윙 중 대시를 얻었을 때 어떤 능력이 우선하는지 전이 규칙으로 표현할 수 있습니다.
+
+```text
+Bouncing + StraightItem → Straight
+Straight + WallHit → Bouncing
+Bouncing + StickyWall → Sticky
+Sticky + JumpInput → Bouncing
+Any + Death → Dead
+```
+
+여러 boolean 조합보다 유효하지 않은 상태가 훨씬 적어집니다.
+
+# 레이저는 의존성 기반으로 갱신
+
+현재 `RefreshLasersNear()`는 모든 레이저 빔을 삭제한 뒤, 변경 지점 근처의 레이저만 다시 생성합니다. [PlayState.cs](/home/flora1119/unity_projects/BB_FME/Assets/Scripts/Utils/PlayState.cs:193)
+
+이 방식이면 먼 곳의 레이저까지 삭제된 후 재생성되지 않을 가능성이 있습니다. 현재 “레이저 실시간 반영 작업 중”과 관계된 버그 후보입니다.
+
+새 구조는 레이저 발사기별로 경로를 따로 소유해야 합니다.
+
+```rust
+struct LaserPath {
+    emitter: BlockId,
+    crossed_cells: Vec<GridPos>,
+    segments: Vec<LaserSegment>,
+}
+```
+
+블록이 이동하면:
+
+```text
+변경된 좌표 확인
+→ 해당 좌표를 지나던 LaserPath만 Dirty 처리
+→ 영향받은 발사기만 재계산
+→ 해당 경로의 화면과 Collider만 교체
+```
+
+전체 삭제가 없어지고, 먼 레이저도 사라지지 않습니다.
+
+# 에디터 검증도 독립 시스템으로 분리
+
+현재는 플레이 버튼을 누르는 코드에서 공과 별 조건을 직접 검사합니다. 더 나은 방식은 검증 규칙 목록입니다.
+
+```rust
+trait MapValidationRule {
+    fn validate(&self, map: &MapDefinition) -> Vec<MapIssue>;
+}
+```
+
+검증 항목:
+
+- 공이 정확히 하나인가?
+- 별이 하나 이상인가?
+- 모든 포탈이 쌍으로 연결됐는가?
+- 텔레포트 입구에 출구가 있는가?
+- 블록 옵션이 허용 범위인가?
+- 맵 바깥 블록이 있는가?
+- 시작 위치가 즉시 사망 지점인가?
+- 레이저가 무한 순환하는가?
+
+에디터 UI, 저장, 업로드가 모두 같은 검증기를 사용할 수 있습니다.
+
+# 네트워크는 게임 로직에서 격리
+
+현재 UI 스크립트가 URL 생성, 요청, JSON 해석, 다이얼로그 표시, 씬 이동까지 모두 수행합니다.
+
+```text
+UI
+→ UserMapService
+→ ApiClient
+→ HTTP
+```
+
+이렇게 나누는 편이 좋습니다.
+
+```rust
+trait UserMapRepository {
+    async fn list_maps(&self, query: MapQuery) -> Result<Vec<MapSummary>>;
+    async fn load_map(&self, id: MapId) -> Result<MapDefinition>;
+    async fn upload_map(&self, map: &MapDefinition) -> Result<MapId>;
+}
+```
+
+실제 서버 대신 `MockUserMapRepository`를 연결하면 서버가 없어도 UI와 게임을 개발하고 테스트할 수 있습니다.
+
+# 유지해야 할 좋은 부분
+
+기존 설계를 전부 버릴 필요는 없습니다.
+
+- JSON 중심 맵 구조
+- 블록 ID의 안정성
+- `block_assets_config.json` 데이터화
+- 에디터와 플레이의 맵 공유
+- 공통 블록 인터페이스 발상
+- 고정 timestep 기반 물리
+- 입력 이벤트 통합
+- 게임 밸런스 상수 분리
+- 에디터 테스트 모드
+- 서버 DTO를 별도 클래스로 둔 점
+
+특히 **JSON 맵과 블록 레지스트리 발상은 Bevy 이전의 가장 좋은 자산**입니다.
+
+# 실제로는 어디까지 Unity에서 바꿔야 할까?
+
+Unity판을 아래처럼 전부 재작성하는 것은 권하지 않습니다. Bevy에서 다시 구현해야 하기 때문입니다.
+
+Unity판에서는 다음만 준비하면 충분합니다.
+
+1. 기존 JSON 맵 샘플과 호환성 테스트 확보
+2. 블록별 기대 동작 문서화
+3. 대표 테스트 맵 제작
+4. 물리 상수와 충돌 결과 기록
+5. 명확한 데이터 손상 및 진행 차단 버그만 수정
+6. 서버 API 요청·응답 보존
+7. Unity판을 동작 참고용 기준 구현으로 유지
+
+그리고 Bevy판에서는 처음부터 다음 원칙을 적용합니다.
+
+> 불변 맵 원본 + 재생성 가능한 플레이 월드 + 안정적인 블록 ID + 명령형 에디터 + 단계별 충돌 처리 + 조합형 블록 시스템
+
+정리하면, 현재 코드를 그대로 Rust 문법으로 옮기는 것보다 훨씬 좋은 구조가 있습니다. 특히 **공 물리를 Shape Cast 기반으로 직접 통제하고, 맵 원본과 플레이 월드를 분리하는 것**이 이번 교체에서 가장 가치 있는 변화가 될 것 같습니다.
+=====================

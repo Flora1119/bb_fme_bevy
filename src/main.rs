@@ -1,7 +1,7 @@
 use avian2d::prelude::PhysicsDebugPlugin;
 use bb_fme_bevy::gameplay::{
     BlockVisualPlugin, DevelopmentMapPlugin, GameplayPhysicsPlugin, MapPresentationPlugin,
-    MapSpawnPlugin,
+    MapSpawnPlugin, PlayerCameraPlugin, PlayerControlPlugin,
 };
 use bevy::prelude::*;
 
@@ -11,9 +11,11 @@ fn main() {
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             MapSpawnPlugin,
             GameplayPhysicsPlugin,
+            PlayerControlPlugin,
             PhysicsDebugPlugin,
             BlockVisualPlugin,
             MapPresentationPlugin,
+            PlayerCameraPlugin,
             DevelopmentMapPlugin,
         ))
         .run();

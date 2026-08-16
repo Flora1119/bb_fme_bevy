@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 const BLOCK_CONFIG: &str = include_str!("../../assets/config/block_assets_config.json");
 
-const DEVELOPMENT_MAP: &str = include_str!("../../assets/maps/synthetic_minimal_map.json");
+const DEVELOPMENT_MAP: &str = include_str!("../../assets/maps/phase5_camera_follow_sandbox.json");
 
 pub struct DevelopmentMapPlugin;
 

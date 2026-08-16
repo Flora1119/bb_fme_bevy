@@ -73,8 +73,6 @@ fn frame_camera_for_loaded_map(
     };
 
     let size = play_world.definition().settings.size;
-    let view_width = (size.width as f32 * BLOCK_WORLD_SIZE).max(MIN_VIEW_WIDTH);
-    let view_height = (size.height as f32 * BLOCK_WORLD_SIZE).max(MIN_VIEW_HEIGHT);
     let center_x = (size.width - 1) as f32 * BLOCK_WORLD_SIZE * 0.5;
     let center_y = (size.height - 1) as f32 * BLOCK_WORLD_SIZE * 0.5;
 
@@ -87,8 +85,8 @@ fn frame_camera_for_loaded_map(
         };
 
         orthographic.scaling_mode = ScalingMode::AutoMin {
-            min_width: view_width,
-            min_height: view_height,
+            min_width: MIN_VIEW_WIDTH,
+            min_height: MIN_VIEW_HEIGHT,
         };
     }
 }

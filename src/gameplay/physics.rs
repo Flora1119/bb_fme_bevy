@@ -10,8 +10,8 @@ pub const MIN_BOUNCE_VELOCITY: f32 = 9.5;
 pub const FLOOR_COLLISION_THRESHOLD: f32 = 0.7;
 pub const CEILING_COLLISION_THRESHOLD: f32 = 0.7;
 pub const WALL_COLLISION_THRESHOLD: f32 = 0.9;
-pub const MIN_WALL_BOUNCE_SPEED: f32 = 12.0;
-pub const WALL_BOUNCE_DAMPING_RATIO: f32 = 0.8;
+pub const MIN_WALL_BOUNCE_SPEED: f32 = 3.0;
+pub const WALL_BOUNCE_DAMPING_RATIO: f32 = 0.3;
 
 // 벽을 향하는 속도가 이 값 이하라면,
 // 실제 충돌이 아니라 수치 오차 또는 스치기 접촉으로 취급합니다.
