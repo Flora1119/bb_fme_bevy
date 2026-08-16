@@ -8,6 +8,13 @@ pub const CAMERA_VERTICAL_DEAD_ZONE: f32 = 3.0;
 
 pub struct PlayerCameraPlugin;
 
+type MapCameraQuery<'w, 's> = Query<
+    'w,
+    's,
+    (&'static mut Transform, &'static Projection),
+    (With<MapCamera>, Without<PlayerBall>),
+>;
+
 impl Plugin for PlayerCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -23,7 +30,7 @@ fn follow_player_camera(
     active_play_world: Res<ActivePlayWorld>,
     play_worlds: Query<&PlayWorld>,
     players: Query<&Transform, (With<PlayerBall>, Without<MapCamera>)>,
-    mut cameras: Query<(&mut Transform, &Projection), (With<MapCamera>, Without<PlayerBall>)>,
+    mut cameras: MapCameraQuery,
 ) {
     let Some(root) = active_play_world.root() else {
         return;

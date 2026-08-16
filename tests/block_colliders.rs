@@ -56,7 +56,7 @@ fn app_with_physics_bodies() -> App {
 
 #[test]
 fn normal_block_receives_a_static_full_tile_collider() {
-    let mut app = app_with_physics_bodies();
+    let app = app_with_physics_bodies();
     let block = app
         .world()
         .resource::<GridIndex>()
