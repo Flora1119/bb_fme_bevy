@@ -248,9 +248,9 @@ PlaySessionSet::AdvanceTime을 별도 SystemSet으로 두어
 PlayInteractionSet::Resolve는 Solver 이후에 실행되고,
 기존 바닥·천장·벽 반동 처리는 Resolve 이후에 실행된다.
 
-현재 범위
+이 체크포인트 당시 범위
 
-이번 체크포인트에서는 게임 규칙을 처리할 기반만 만든다.
+이번 체크포인트에서는 게임 규칙을 처리할 기반만 만들었다.
 
 아직 실제 별 Sensor 또는 가시 Sensor가
 PendingPlayInteractions를 생성하도록 연결하지 않았다.
@@ -285,3 +285,112 @@ cargo test --quiet
 위 검증이 모두 통과하면
 Phase 4의 최소 PlaySession 및 결정적 상호작용 처리 체크포인트를
 완료한 것으로 본다.
+
+## 10. 실제 별 수집
+
+최소 PlaySession과 결정적 상호작용 처리 구조 위에
+일반 별의 실제 물리 수집 흐름을 연결했다.
+
+현재 일반 `star`는 MapSpawn 단계에서
+`CollectibleStar` 역할을 부여받는다.
+
+StarCollectionPlugin은 새로 생성된 CollectibleStar에
+다음 물리 구성요소를 연결한다.
+
+Sensor
+CollisionEventsEnabled
+Collider
+StarSensorCollider
+
+별 Collider는 Sensor이므로
+플레이어와 물리적으로 충돌해 이동을 막지 않고,
+접촉 시작 이벤트만 생성한다.
+
+실제 수집 흐름은 다음과 같다.
+
+PlayerBall
+↓
+CollectibleStar Sensor 접촉
+↓
+CollisionStart
+↓
+PlayInteraction::Collection
+↓
+PendingPlayInteractions
+↓
+결정적 Resolve
+↓
+PlaySession.collected_stars 증가
+↓
+CollectedStar
+↓
+Visibility::Hidden
+↓
+ColliderDisabled
+
+Collection 이벤트는 물리 이벤트가 발생하는 즉시
+PlaySession을 직접 변경하지 않는다.
+
+기존 PlayInteractionSet::Collect에서 먼저 수집한 뒤,
+PlayInteractionSet::Resolve에서 기존 우선순위 규칙에 따라 처리한다.
+
+따라서 별 수집도 이전 체크포인트에서 정의한
+Death → Movement → Collection → Switch 순서를 그대로 따른다.
+
+수집된 별은 Entity 자체를 despawn하지 않는다.
+
+대신 `CollectedStar`를 추가하고,
+`Visibility::Hidden`으로 Sprite를 숨기며,
+`ColliderDisabled`로 이후 충돌 감지를 중지한다.
+
+이 방식은 GridIndex가 이미 제거된 Entity를 가리키는 문제를 피하고,
+향후 재시작 시 기존 Entity를 개별 복원하지 않고
+PlayWorld 전체를 재생성하는 구조와도 맞는다.
+
+같은 별에서 Collection 이벤트가 중복 발생해도
+한 물리 틱 안에서는 기존 정규화 단계에서 한 번만 처리된다.
+
+또한 이미 CollectedStar 상태인 별은
+후속 Collection 처리 대상에서 제외되므로
+여러 물리 틱에 걸쳐 같은 별이 다시 증가하지 않는다.
+
+현재 범위에서는 일반 `star`만 실제 수집 대상으로 연결한다.
+
+`star_jump`, `star_empty` 등의 추가 별 종류는
+이후 관련 블록 이식 단계에서 별도 동작과 함께 확장한다.
+
+별 개수가 목표치에 도달했을 때의 Cleared 전환,
+클리어 UI,
+타이머 종료 처리는 아직 이번 체크포인트의 범위가 아니다.
+
+### 자동 검증
+
+`tests/star_collection.rs`는 실제 Avian 물리 충돌을 발생시켜
+다음 동작을 검증한다.
+
+- PlayerBall과 별 Sensor가 접촉하면 별이 한 번 수집된다.
+- 수집 후 CollectedStar가 추가된다.
+- 수집 후 Visibility가 Hidden이 된다.
+- 수집 후 ColliderDisabled가 추가된다.
+- 같은 위치에 계속 머물러도 같은 별은 다시 증가하지 않는다.
+- 같은 물리 틱에 여러 별과 접촉하면 각각 한 번씩 수집된다.
+
+기존 `tests/play_session.rs`도 함께 강화하여
+Death가 Collection보다 우선할 경우
+별의 카운트뿐 아니라 실제 별 Entity도 수집 상태로 전환되지 않는 것을 검증한다.
+
+수동 검증에서는 development map에서 `cargo run`을 실행하고
+플레이어가 일반 별에 접촉하는 순간 별 Sprite가 사라지는 것을 확인했다.
+
+검증 명령:
+
+cargo test --test play_session
+cargo test --test star_collection
+cargo test --test player_control_wall_response
+cargo test --test block_colliders
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test --quiet
+
+위 자동 검증과 수동 검증이 모두 통과했으므로
+Phase 4의 실제 별 수집 체크포인트를 완료한 것으로 본다.

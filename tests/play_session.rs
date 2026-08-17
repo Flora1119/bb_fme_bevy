@@ -1,7 +1,8 @@
 use avian2d::prelude::*;
 use bb_fme_bevy::gameplay::{
-    GameplayPhysicsPlugin, PHYSICS_HZ, PendingPlayInteractions, PlayInteraction, PlaySession,
-    PlaySessionPlugin, PlaySessionState, PlayerBall, PlayerControlPlugin, PlayerInputIntent,
+    CollectedStar, CollectibleStar, GameplayPhysicsPlugin, PHYSICS_HZ, PendingPlayInteractions,
+    PlayInteraction, PlaySession, PlaySessionPlugin, PlaySessionState, PlayerBall,
+    PlayerControlPlugin, PlayerInputIntent,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
@@ -51,7 +52,7 @@ fn death_beats_collection_regardless_of_arrival_order() {
     for collection_first in [true, false] {
         let mut app = app_with_session();
 
-        let star = app.world_mut().spawn_empty().id();
+        let star = app.world_mut().spawn(CollectibleStar).id();
         let spike = app.world_mut().spawn_empty().id();
 
         {
@@ -75,6 +76,11 @@ fn death_beats_collection_regardless_of_arrival_order() {
         assert_eq!(session.state(), PlaySessionState::Dead);
 
         assert_eq!(session.collected_stars(), 0);
+
+        assert!(
+            app.world().get::<CollectedStar>(star).is_none(),
+            "death must prevent the star from being collected"
+        );
     }
 }
 
@@ -82,7 +88,7 @@ fn death_beats_collection_regardless_of_arrival_order() {
 fn duplicate_collection_from_same_source_counts_once_per_tick() {
     let mut app = app_with_session();
 
-    let star = app.world_mut().spawn_empty().id();
+    let star = app.world_mut().spawn(CollectibleStar).id();
 
     {
         let mut pending = app.world_mut().resource_mut::<PendingPlayInteractions>();
@@ -99,6 +105,15 @@ fn duplicate_collection_from_same_source_counts_once_per_tick() {
     assert_eq!(session.state(), PlaySessionState::Playing);
 
     assert_eq!(session.collected_stars(), 1);
+
+    assert!(app.world().get::<CollectedStar>(star).is_some());
+
+    assert!(matches!(
+        app.world().get::<Visibility>(star),
+        Some(Visibility::Hidden)
+    ));
+
+    assert!(app.world().get::<ColliderDisabled>(star).is_some());
 }
 
 #[test]

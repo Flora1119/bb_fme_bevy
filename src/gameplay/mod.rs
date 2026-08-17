@@ -7,6 +7,7 @@ mod map_spawn;
 mod physics;
 mod play_session;
 mod player_control;
+mod star_collection;
 
 pub use block_role::*;
 pub use block_visual::*;
@@ -17,3 +18,4 @@ pub use map_spawn::*;
 pub use physics::*;
 pub use play_session::*;
 pub use player_control::*;
+pub use star_collection::*;

@@ -1,3 +1,4 @@
+use super::{CollectedStar, CollectibleStar};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -181,8 +182,10 @@ fn advance_play_session_time(time: Res<Time<Physics>>, mut session: ResMut<PlayS
 }
 
 fn resolve_pending_play_interactions(
+    mut commands: Commands,
     mut pending: ResMut<PendingPlayInteractions>,
     mut session: ResMut<PlaySession>,
+    collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
 ) {
     let mut interactions = std::mem::take(&mut pending.interactions);
 
@@ -206,8 +209,18 @@ fn resolve_pending_play_interactions(
                 // Phase 4 후속 작업에서 포탈/강제 이동 규칙을 연결합니다.
             }
 
-            PlayInteraction::Collection { .. } => {
+            PlayInteraction::Collection { source } => {
+                if !collectible_stars.contains(source) {
+                    continue;
+                }
+
                 session.collect_star();
+
+                commands.entity(source).insert((
+                    CollectedStar,
+                    Visibility::Hidden,
+                    ColliderDisabled,
+                ));
             }
 
             PlayInteraction::Switch { .. } => {
