@@ -1,4 +1,4 @@
-use super::{MapSpawnSet, PlayerBall};
+use super::{MapSpawnSet, PlaySession, PlaySessionSet, PlayerBall};
 use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
 
@@ -16,7 +16,7 @@ impl Plugin for PlayerControlPlugin {
             .add_systems(
                 PhysicsSchedule,
                 apply_horizontal_control
-                    .after(PhysicsStepSystems::First)
+                    .after(PlaySessionSet::AdvanceTime)
                     .before(PhysicsStepSystems::BroadPhase),
             );
     }
@@ -47,13 +47,25 @@ fn attach_player_input_intent(
 }
 
 fn capture_keyboard_input(
+    session: Res<PlaySession>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut players: Query<&mut PlayerInputIntent, With<PlayerBall>>,
 ) {
+    if !session.is_playing() {
+        for mut intent in &mut players {
+            intent.set_horizontal(0.0);
+        }
+
+        return;
+    }
+
     let left_pressed = keyboard.pressed(KeyCode::ArrowLeft) || keyboard.pressed(KeyCode::KeyA);
+
     let right_pressed = keyboard.pressed(KeyCode::ArrowRight) || keyboard.pressed(KeyCode::KeyD);
+
     let left_just_pressed =
         keyboard.just_pressed(KeyCode::ArrowLeft) || keyboard.just_pressed(KeyCode::KeyA);
+
     let right_just_pressed =
         keyboard.just_pressed(KeyCode::ArrowRight) || keyboard.just_pressed(KeyCode::KeyD);
 
@@ -71,9 +83,14 @@ fn capture_keyboard_input(
 }
 
 fn apply_horizontal_control(
+    session: Res<PlaySession>,
     time: Res<Time<Physics>>,
     mut players: Query<(&PlayerInputIntent, &mut LinearVelocity), With<PlayerBall>>,
 ) {
+    if !session.is_playing() {
+        return;
+    }
+
     let delta_seconds = time.delta_secs();
 
     for (intent, mut velocity) in &mut players {

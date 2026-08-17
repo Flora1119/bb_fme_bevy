@@ -5,8 +5,8 @@ use bb_fme_bevy::{
     gameplay::{
         BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_WALL_BOUNCE_SPEED, MapSpawnPlugin,
         PHYSICS_HZ, PLAYER_HORIZONTAL_ACCELERATION, PLAYER_HORIZONTAL_DECELERATION,
-        PLAYER_MAX_HORIZONTAL_SPEED, PlayerControlPlugin, PlayerInputIntent, SOLID_COLLIDER_SIZE,
-        SolidBlock, SpawnValidatedMap,
+        PLAYER_MAX_HORIZONTAL_SPEED, PlaySessionPlugin, PlayerControlPlugin, PlayerInputIntent,
+        SOLID_COLLIDER_SIZE, SolidBlock, SpawnValidatedMap,
     },
     map::MapDocument,
 };
@@ -45,6 +45,7 @@ fn app_with_player_control() -> App {
         MapSpawnPlugin,
         GameplayPhysicsPlugin,
         PlayerControlPlugin,
+        PlaySessionPlugin,
     ));
     app.init_resource::<Assets<GizmoAsset>>();
     app.world_mut()

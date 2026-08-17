@@ -1,4 +1,6 @@
-use super::{BLOCK_WORLD_SIZE, DeadlySpike, MapSpawnSet, PlayerBall, SolidBlock};
+use super::{
+    BLOCK_WORLD_SIZE, DeadlySpike, MapSpawnSet, PlayInteractionSet, PlayerBall, SolidBlock,
+};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -53,6 +55,7 @@ impl Plugin for GameplayPhysicsPlugin {
                 PhysicsSchedule,
                 apply_solid_contact_response
                     .after(PhysicsStepSystems::Solver)
+                    .after(PlayInteractionSet::Resolve)
                     .before(PhysicsStepSystems::Sleeping),
             );
     }

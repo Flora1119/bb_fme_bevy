@@ -151,3 +151,137 @@ fixture: assets/maps/unity_phase4_vertical_slice.json
 
 fixture의 정확한 출처, 생성 방법, 검증 범위와 부동소수점 round-trip 정책은
 다음 문서에 기록한다.
+
+## 9. 최소 PlaySession과 결정적 상호작용 처리
+
+게임 플레이 상태와 물리 상호작용의 실행 순서를 관리하기 위한
+최소 PlaySession 구조를 추가했다.
+
+현재 세션 상태는 다음 세 가지다.
+
+Playing
+Dead
+Cleared
+
+PlaySession은 현재 다음 플레이 진행 데이터를 관리한다.
+
+state
+collected_stars
+elapsed_seconds
+
+elapsed_seconds는 세션이 Playing일 때만 증가한다.
+
+세션이 Dead 또는 Cleared 상태가 되면
+플레이어 입력 수집과 수평 제어도 더 이상 진행되지 않는다.
+
+상호작용 수집과 적용 분리
+
+물리 이벤트가 도착하는 즉시 게임 상태를 변경하지 않는다.
+
+게임 규칙에 영향을 주는 상호작용은 먼저
+PendingPlayInteractions에 수집한 뒤,
+같은 물리 틱 안에서 한 번에 정규화하고 처리한다.
+
+현재 상호작용 종류는 다음과 같다.
+
+Death
+Movement
+Collection
+Switch
+
+현재 결정적 우선순위는 다음과 같다.
+
+Death
+↓
+Movement / Portal
+↓
+Collection
+↓
+Switch
+↓
+기존 물리 Bounce
+
+동일 우선순위의 이벤트는 Entity 식별자를 기준으로 정렬한다.
+
+동일한 Entity에서 같은 상호작용이 한 물리 틱에 여러 번 발생한 경우
+한 번만 처리하도록 중복을 제거한다.
+
+이를 통해 이벤트가 물리 엔진에서 들어오는 순서가 달라져도
+게임 규칙의 결과가 달라지지 않도록 한다.
+
+Death 우선 규칙
+
+같은 물리 틱에 죽음과 수집이 동시에 발생하면 죽음이 우선한다.
+
+예를 들어 플레이어가 같은 틱에 별과 가시에 동시에 접촉하면
+Death를 먼저 처리하고 해당 틱의 나머지 게임 규칙 처리를 중단한다.
+
+따라서 별은 증가하지 않는다.
+
+PhysicsSchedule 실행 순서
+
+현재 관련 시스템의 실행 순서는 다음과 같다.
+
+PhysicsStepSystems::First
+↓
+PlaySessionSet::AdvanceTime
+↓
+Player horizontal control
+↓
+BroadPhase
+↓
+NarrowPhase
+↓
+PlayInteractionSet::Collect
+↓
+Solver
+↓
+PlayInteractionSet::Resolve
+↓
+기존 solid contact / bounce response
+↓
+Sleeping
+
+PlaySessionSet::AdvanceTime을 별도 SystemSet으로 두어
+세션 시간 갱신과 플레이어 제어의 데이터 접근 순서도 명시적으로 고정했다.
+
+PlayInteractionSet::Resolve는 Solver 이후에 실행되고,
+기존 바닥·천장·벽 반동 처리는 Resolve 이후에 실행된다.
+
+현재 범위
+
+이번 체크포인트에서는 게임 규칙을 처리할 기반만 만든다.
+
+아직 실제 별 Sensor 또는 가시 Sensor가
+PendingPlayInteractions를 생성하도록 연결하지 않았다.
+
+또한 Movement와 Switch는 향후 포탈 및 스위치 구현을 위한
+우선순위 슬롯만 존재하며 실제 게임 규칙은 아직 적용하지 않는다.
+
+다음 작업부터 실제 물리 접촉을 이 구조에 연결한다.
+
+자동 검증
+
+tests/play_session.rs는 실제 ECS 및 PhysicsSchedule에서 다음을 검증한다.
+
+이벤트 입력 순서와 관계없이 Death가 Collection보다 우선한다.
+같은 source의 Collection이 한 틱에 중복되면 한 번만 처리된다.
+Playing 상태에서는 타이머가 진행된다.
+Dead 상태에서는 타이머가 멈춘다.
+Playing 상태에서는 수평 입력과 제어가 동작한다.
+Dead 상태에서는 입력 intent가 0으로 돌아가고 수평 제어가 중지된다.
+
+기존 수평 제어와 벽 반동의 회귀 검증은
+tests/player_control_wall_response.rs에서 계속 수행한다.
+
+검증 명령:
+
+cargo test --test play_session
+cargo test --test player_control_wall_response
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test --quiet
+
+위 검증이 모두 통과하면
+Phase 4의 최소 PlaySession 및 결정적 상호작용 처리 체크포인트를
+완료한 것으로 본다.
