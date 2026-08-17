@@ -4,16 +4,14 @@
 
 현재 수직 단면은 다음 흐름까지 실제 런타임에 연결되어 있다.
 
-```text
 키보드 입력
-    → PlayerInputIntent
-    → PhysicsSchedule 수평 제어
-    → Avian 충돌 해결
-    → BB_FME 바닥·천장·벽 반응
-    → PlayerBall Transform
-    → PlayerCameraPlugin
-    → 맵 범위에 제한된 카메라 추적
-```
+→ PlayerInputIntent
+→ PhysicsSchedule 수평 제어
+→ Avian 충돌 해결
+→ BB_FME 바닥·천장·벽 반응
+→ PlayerBall Transform
+→ PlayerCameraPlugin
+→ 맵 범위에 제한된 카메라 추적
 
 현재 입력은 `A`/`←`, `D`/`→`를 지원한다.
 
@@ -141,3 +139,15 @@ cargo test -- --ignored
 
 수동 검증 결과도 이 문서에 기록한 뒤 다음 단계인
 실제 Unity JSON 골든 fixture 확보로 이동한다.
+
+## 8. Unity JSON 골든 fixture
+
+Unity 원본 JSON 스키마와 Rust `MapDocument`의 실제 호환성을 검증하기 위해
+Unity Editor에서 생성한 골든 fixture를 유지한다.
+
+fixture: assets/maps/unity_phase4_vertical_slice.json
+
+호환성 테스트: tests/map_document_compat.rs
+
+fixture의 정확한 출처, 생성 방법, 검증 범위와 부동소수점 round-trip 정책은
+다음 문서에 기록한다.

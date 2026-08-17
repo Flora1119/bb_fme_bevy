@@ -4,63 +4,61 @@
 
 현재 맵 저장 포맷은 Newtonsoft.Json이 public field 이름을 그대로 직렬화한 JSON이다. 별도 `schema_version`이 없으므로 필드명, 숫자 단위, 기본값 변경은 기존 서버 저장 맵과의 호환성을 깨뜨릴 수 있다.
 
-```json
 {
-  "map_name": "editor_map",
-  "author": "nickname",
-  "map_settings": {
-    "time_limit": 60.0,
-    "show_time_ranking": true,
-    "star_count": 3,
-    "size": { "width": 25, "height": 15 },
-    "tp1_exit": { "x": -1, "y": -1 },
-    "tp2_exit": { "x": -1, "y": -1 },
-    "portal1_positions": { "a_px": -1, "a_py": -1, "b_px": -1, "b_py": -1 },
-    "portal2_positions": { "a_px": -1, "a_py": -1, "b_px": -1, "b_py": -1 },
-    "sw_el": true,
-    "sw_b1": true,
-    "sw_b2": true
-  },
-  "blocks": [
-    {
-      "x": 2,
-      "y": 3,
-      "block": { "type": "block", "name": "b_normal", "dir": 0 }
-    }
-  ],
-  "block_options": [
-    {
-      "x": 8,
-      "y": 4,
-      "name": "ob_cannon",
-      "options": [
-        { "value_name": "Delay", "value": 0.5 },
-        { "value_name": "Interval", "value": 1.5 },
-        { "value_name": "Value", "value": 8.0 }
-      ]
-    }
-  ]
+"map_name": "editor_map",
+"author": "nickname",
+"map_settings": {
+"time_limit": 60.0,
+"show_time_ranking": true,
+"star_count": 3,
+"size": { "width": 25, "height": 15 },
+"tp1_exit": { "x": -1, "y": -1 },
+"tp2_exit": { "x": -1, "y": -1 },
+"portal1_positions": { "a_px": -1, "a_py": -1, "b_px": -1, "b_py": -1 },
+"portal2_positions": { "a_px": -1, "a_py": -1, "b_px": -1, "b_py": -1 },
+"sw_el": true,
+"sw_b1": true,
+"sw_b2": true
+},
+"blocks": [
+{
+"x": 2,
+"y": 3,
+"block": { "type": "block", "name": "b_normal", "dir": 0 }
 }
-```
+],
+"block_options": [
+{
+"x": 8,
+"y": 4,
+"name": "ob_cannon",
+"options": [
+{ "value_name": "Delay", "value": 0.5 },
+{ "value_name": "Interval", "value": 1.5 },
+{ "value_name": "Value", "value": 8.0 }
+]
+}
+]
+}
 
 ### 필드 규약
 
-| 경로 | 형식 | 현재 의미 |
-|---|---|---|
-| `map_name` | string | 에디터 export 시 항상 `editor_map`; 업로드 제목은 API의 별도 `map_name` |
-| `author` | string | export 시 현재 닉네임 |
-| `map_settings.time_limit` | float | 초; 0은 제한 없음 |
-| `show_time_ranking` | bool | stopwatch/랭킹 활성화 |
-| `star_count` | int | 클리어에 필요한 별 수 |
-| `size.width/height` | int | 논리 맵 크기 |
-| `tp*_exit` | int 좌표 | 미배치 sentinel은 `(-1,-1)` |
-| `portal*_positions` | int 좌표 2쌍 | A/B 미배치도 각 `(-1,-1)` |
-| `sw_el/sw_b1/sw_b2` | bool | 스위치 군 초기 상태 |
-| `blocks[].x/y` | int | 그리드 좌표 |
-| `blocks[].block.type` | string | 9개 카테고리 중 하나 |
-| `blocks[].block.name` | string | 리소스/프리팹 ID |
-| `blocks[].block.dir` | int | 0..3, 위에서 시계 방향 |
-| `block_options[].options` | ordered array | 이름/float 값; C#에서는 Queue 사용 |
+| 경로                      | 형식          | 현재 의미                                                               |
+| ------------------------- | ------------- | ----------------------------------------------------------------------- |
+| `map_name`                | string        | 에디터 export 시 항상 `editor_map`; 업로드 제목은 API의 별도 `map_name` |
+| `author`                  | string        | export 시 현재 닉네임                                                   |
+| `map_settings.time_limit` | float         | 초; 0은 제한 없음                                                       |
+| `show_time_ranking`       | bool          | stopwatch/랭킹 활성화                                                   |
+| `star_count`              | int           | 클리어에 필요한 별 수                                                   |
+| `size.width/height`       | int           | 논리 맵 크기                                                            |
+| `tp*_exit`                | int 좌표      | 미배치 sentinel은 `(-1,-1)`                                             |
+| `portal*_positions`       | int 좌표 2쌍  | A/B 미배치도 각 `(-1,-1)`                                               |
+| `sw_el/sw_b1/sw_b2`       | bool          | 스위치 군 초기 상태                                                     |
+| `blocks[].x/y`            | int           | 그리드 좌표                                                             |
+| `blocks[].block.type`     | string        | 9개 카테고리 중 하나                                                    |
+| `blocks[].block.name`     | string        | 리소스/프리팹 ID                                                        |
+| `blocks[].block.dir`      | int           | 0..3, 위에서 시계 방향                                                  |
+| `block_options[].options` | ordered array | 이름/float 값; C#에서는 Queue 사용                                      |
 
 로드 시 prefab registry에 이름이 없는 블록은 오류 없이 건너뛴다. `mapData.blocks == null`은 에디터 로드에서 오류지만, MapPlay 로드는 `mapData == null`만 먼저 검사한다. `block_options`는 null 허용이다.
 
@@ -98,11 +96,11 @@
 
 Unity `PlayerPrefs` key:
 
-| Key | 형식 | 기본값 | 의미 |
-|---|---|---|---|
-| `SoundEnabled` | int 0/1 | 1 | 사운드 토글. 현재 프로젝트에는 오디오 에셋/재생 코드가 없음 |
-| `EffectEnabled` | int 0/1 | 1 | 이펙트 토글. 현재 사망 particle 표시와 직접 연결된 코드는 없음 |
-| `Token` | string | 없음 | 로그인 토큰; check_token으로 세션 복구 |
+| Key             | 형식    | 기본값 | 의미                                                           |
+| --------------- | ------- | ------ | -------------------------------------------------------------- |
+| `SoundEnabled`  | int 0/1 | 1      | 사운드 토글. 현재 프로젝트에는 오디오 에셋/재생 코드가 없음    |
+| `EffectEnabled` | int 0/1 | 1      | 이펙트 토글. 현재 사망 particle 표시와 직접 연결된 코드는 없음 |
+| `Token`         | string  | 없음   | 로그인 토큰; check_token으로 세션 복구                         |
 
 Bevy 구현은 플랫폼별 저장소를 바꾸더라도 이 세 key의 마이그레이션 또는 1회 import 정책을 정해야 한다. Token은 평문 로컬 저장이라는 현행 의미론을 그대로 문서화하되, 새 구현에서 안전 저장소 사용 여부는 별도 결정 사항이다.
 
@@ -123,58 +121,56 @@ Rust 클라이언트는 기존 서버 호환을 위해 JSON body로 바꾸지 �
 
 ### 부트/인증/프로필
 
-| Method | Path | Request | 주요 응답/효과 |
-|---|---|---|---|
-| GET | `/note/version.txt` | 없음 | raw string; `v1.0.3`과 완전 일치 비교 |
-| GET | `/note/update-note.txt` | 없음 | raw text |
-| GET | `/note/credits.txt` | 없음 | raw text |
-| POST | `/api/check_token` | `token` | `valid` + `TokenResponse(email,nickname,user_seq)` 또는 `invalid` |
-| POST | `/api/login` | `email,nickname,password` | `success` + `LoginResponse(token,user_seq)`; `error_no_result`, `error_pw_wrong` |
-| POST | `/api/register` | `email,nickname,password` | `success` + `RegisterResponse(user_seq)`; `error_name_already_exists` |
-| GET | `/api/get_profile?user_seq=...` | query `user_seq` | `GetProfileResponse(nickname,play_count,clear_count,map_Count,last_activity,created_at)` |
+| Method | Path                            | Request                   | 주요 응답/효과                                                                           |
+| ------ | ------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| GET    | `/note/version.txt`             | 없음                      | raw string; `v1.0.3`과 완전 일치 비교                                                    |
+| GET    | `/note/update-note.txt`         | 없음                      | raw text                                                                                 |
+| GET    | `/note/credits.txt`             | 없음                      | raw text                                                                                 |
+| POST   | `/api/check_token`              | `token`                   | `valid` + `TokenResponse(email,nickname,user_seq)` 또는 `invalid`                        |
+| POST   | `/api/login`                    | `email,nickname,password` | `success` + `LoginResponse(token,user_seq)`; `error_no_result`, `error_pw_wrong`         |
+| POST   | `/api/register`                 | `email,nickname,password` | `success` + `RegisterResponse(user_seq)`; `error_name_already_exists`                    |
+| GET    | `/api/get_profile?user_seq=...` | query `user_seq`          | `GetProfileResponse(nickname,play_count,clear_count,map_Count,last_activity,created_at)` |
 
 `map_Count`는 대문자 C를 포함한 현행 wire field이므로 그대로 호환해야 한다.
 
 ### 에디터 저장 슬롯
 
-| Method | Path | Form fields | 주요 응답 |
-|---|---|---|---|
-| POST | `/api/save_map` | `user_seq,slot_index,json_data,thumbnail` | `success` |
-| POST | `/api/load_map` | `user_seq,slot_index` | `success` + `LoadMapResponse(json_data)`; `error_no_result` |
-| POST | `/api/get_thumbnail_saved` | 코드 사용처 기준 `user_seq,slot_index` | `LoadMapThumbnailResponse(thumbnail)` |
+| Method | Path                       | Form fields                               | 주요 응답                                                   |
+| ------ | -------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| POST   | `/api/save_map`            | `user_seq,slot_index,json_data,thumbnail` | `success`                                                   |
+| POST   | `/api/load_map`            | `user_seq,slot_index`                     | `success` + `LoadMapResponse(json_data)`; `error_no_result` |
+| POST   | `/api/get_thumbnail_saved` | 코드 사용처 기준 `user_seq,slot_index`    | `LoadMapThumbnailResponse(thumbnail)`                       |
 
 `thumbnail`은 PNG byte의 Base64 문자열이다.
 
 ### 맵 허브와 플레이
 
-| Method | Path | Form fields | 주요 응답 |
-|---|---|---|---|
-| POST | `/api/get_map_list` | `sort,author,map_name,offset,limit` | `MapListWrapper.items[]` |
-| POST | `/api/get_map_info` | `map_name,author` | `UserMapInfoResponse(map_seq,like_count,limit_seconds,show_ranking,thumbnail)` |
-| POST | `/api/get_map_json` | `map_seq` | `GetMapJsonResponse(json_data)` |
-| POST | `/api/like_map` | `user_seq,map_seq,nickname` | `success` 또는 `error_already_liked` 의도 |
-| POST | `/api/get_map_reviews` | `mapSeq` | `ReviewListWrapper.reviews[]`; `no_reviews` |
-| POST | `/api/get_timer_records` | `map_seq` | `TimerRecordListWrapper.records[]`; `no_records` |
-| POST | `/api/get_top_timer_record` | `map_seq,user_seq` | `TopTimerRecordResponse(world_best,my_best)` |
-| POST | `/api/check_rating` | `user_seq,map_seq` | `rated` 또는 `not_rated` |
-| POST | `/api/submit_rating` | `user_seq,map_seq,nickname,rating,comment` | `success`, `error_insert`, `error_update` |
-| POST | `/api/submit_timer_record` | `user_seq,map_seq,nickname,clear_time_ms` | `success`, `error_insert` |
-| POST | `/api/upload_map` | `user_seq,map_name,nickname,limit_seconds,show_ranking,json_data,thumbnail` | `success`, `error_insert` |
+| Method | Path                        | Form fields                                                                 | 주요 응답                                                                      |
+| ------ | --------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| POST   | `/api/get_map_list`         | `sort,author,map_name,offset,limit`                                         | `MapListWrapper.items[]`                                                       |
+| POST   | `/api/get_map_info`         | `map_name,author`                                                           | `UserMapInfoResponse(map_seq,like_count,limit_seconds,show_ranking,thumbnail)` |
+| POST   | `/api/get_map_json`         | `map_seq`                                                                   | `GetMapJsonResponse(json_data)`                                                |
+| POST   | `/api/like_map`             | `user_seq,map_seq,nickname`                                                 | `success` 또는 `error_already_liked` 의도                                      |
+| POST   | `/api/get_map_reviews`      | `mapSeq`                                                                    | `ReviewListWrapper.reviews[]`; `no_reviews`                                    |
+| POST   | `/api/get_timer_records`    | `map_seq`                                                                   | `TimerRecordListWrapper.records[]`; `no_records`                               |
+| POST   | `/api/get_top_timer_record` | `map_seq,user_seq`                                                          | `TopTimerRecordResponse(world_best,my_best)`                                   |
+| POST   | `/api/check_rating`         | `user_seq,map_seq`                                                          | `rated` 또는 `not_rated`                                                       |
+| POST   | `/api/submit_rating`        | `user_seq,map_seq,nickname,rating,comment`                                  | `success`, `error_insert`, `error_update`                                      |
+| POST   | `/api/submit_timer_record`  | `user_seq,map_seq,nickname,clear_time_ms`                                   | `success`, `error_insert`                                                      |
+| POST   | `/api/upload_map`           | `user_seq,map_name,nickname,limit_seconds,show_ranking,json_data,thumbnail` | `success`, `error_insert`                                                      |
 
 주의: `get_map_reviews`만 map id 필드가 camelCase `mapSeq`이고 나머지는 `map_seq`다. 서버 호환 테스트에서 반드시 그대로 보존한다.
 
 ## 7. 네트워크 DTO
 
-```text
-MapListData       { map_name:string, author:string, avg_rating:float,
-                    rating_count:int, play_count:int }
-UserMapInfo       { map_seq:string, like_count:int, limit_seconds:float,
-                    show_ranking:int, thumbnail:string }
-ReviewData        { nickname:string, rating:float, comment:string, created_at:string }
-TimerRecordData   { nickname:string, clear_time_ms:float, cleared_at:string }
-TimerRecordTop    { nickname:string, clear_time_ms:float }
-TimeRecordUser    { clear_time_ms:float }
-```
+MapListData { map_name:string, author:string, avg_rating:float,
+rating_count:int, play_count:int }
+UserMapInfo { map_seq:string, like_count:int, limit_seconds:float,
+show_ranking:int, thumbnail:string }
+ReviewData { nickname:string, rating:float, comment:string, created_at:string }
+TimerRecordData { nickname:string, clear_time_ms:float, cleared_at:string }
+TimerRecordTop { nickname:string, clear_time_ms:float }
+TimeRecordUser { clear_time_ms:float }
 
 `clear_time_ms`라는 이름과 달리 클라이언트는 `Time.deltaTime`으로 누적한 초 값을 그대로 전송하고 `FormatTime`에도 초로 전달한다. Rust 모델은 서버 실측 전까지 wire name과 논리 단위를 분리하여, 예를 들어 `clear_time_seconds` 내부 필드에 `#[serde(rename = "clear_time_ms")]`를 적용하는 편이 안전하다.
 

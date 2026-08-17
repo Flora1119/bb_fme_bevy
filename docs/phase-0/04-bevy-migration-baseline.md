@@ -13,39 +13,37 @@
 
 Bevy 버전과 외부 physics crate는 1단계 착수 시 최신 호환성을 확인해 결정한다. 현재 단계에서는 다음 논리 경계를 고정한다.
 
-```text
-bb_fme_app          앱 상태, 씬/화면 전환, 공용 카메라/로딩
-bb_fme_domain       BlockId, MapDocument, 옵션, 방향, 게임 규칙
-bb_fme_assets       sprite/prefab registry, config 로드, asset validation
-bb_fme_physics      공 이동, 접촉 분류, 중력 반전, joint/rope adapter
-bb_fme_gameplay     아이템 큐, 스위치, 포탈, 레이저, 장애물 시스템
-bb_fme_editor       그리드 편집, 배치 제약, 옵션 UI, undo 후보
-bb_fme_net          HTTP form API, DTO, session/token
-bb_fme_persistence  map JSON serde, 로컬 설정, 썸네일 encode/decode
-bb_fme_ui           Main/Hub/Editor/Play 화면과 dialog stack
-bb_fme_tests        fixture, 골든 시뮬레이션, contract test
-```
+bb_fme_app 앱 상태, 씬/화면 전환, 공용 카메라/로딩
+bb_fme_domain BlockId, MapDocument, 옵션, 방향, 게임 규칙
+bb_fme_assets sprite/prefab registry, config 로드, asset validation
+bb_fme_physics 공 이동, 접촉 분류, 중력 반전, joint/rope adapter
+bb_fme_gameplay 아이템 큐, 스위치, 포탈, 레이저, 장애물 시스템
+bb_fme_editor 그리드 편집, 배치 제약, 옵션 UI, undo 후보
+bb_fme_net HTTP form API, DTO, session/token
+bb_fme_persistence map JSON serde, 로컬 설정, 썸네일 encode/decode
+bb_fme_ui Main/Hub/Editor/Play 화면과 dialog stack
+bb_fme_tests fixture, 골든 시뮬레이션, contract test
 
 초기에는 하나의 Cargo workspace 안에 `app` + 소수 library crate로 시작해도 되지만, 위 의존 방향을 코드 module로라도 유지한다. `domain`은 Bevy/렌더러/HTTP에 의존하지 않는 것이 핵심이다.
 
 ## 3. Unity → Bevy 개념 대응
 
-| Unity | Bevy 기준 |
-|---|---|
-| SceneManager scene | `States`/`SubStates` + 화면 root entity |
-| additive MapPlay | Editor state 위 PlayTest substate 또는 별도 simulation world snapshot |
-| MonoBehaviour `Start/Update/FixedUpdate` | `OnEnter`, `Update`, `FixedUpdate` schedule system |
-| static singleton/state | 작은 typed `Resource` |
-| GameObject prefab | data-driven block definition + spawn bundle/system |
-| `CurrentBlockData` dictionary | `GridIndex: HashMap<IVec2, Entity>` + components |
-| interface `IActivatable` 등 | marker/component + event-driven systems |
-| Coroutine/WaitForSeconds | Timer component/resource + systems |
-| UnityEvent/Button callback | UI interaction events |
-| PlayerPrefs | platform persistence adapter |
-| Resources.LoadAll | asset manifest + Bevy AssetServer/loader |
-| Rigidbody2D/Collider2D | 선택한 2D physics backend components |
-| DistanceJoint2D | distance/rope joint adapter 또는 deterministic custom constraint |
-| LineRenderer+EdgeCollider | laser path resource + mesh/line rendering + segment colliders |
+| Unity                                    | Bevy 기준                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------- |
+| SceneManager scene                       | `States`/`SubStates` + 화면 root entity                               |
+| additive MapPlay                         | Editor state 위 PlayTest substate 또는 별도 simulation world snapshot |
+| MonoBehaviour `Start/Update/FixedUpdate` | `OnEnter`, `Update`, `FixedUpdate` schedule system                    |
+| static singleton/state                   | 작은 typed `Resource`                                                 |
+| GameObject prefab                        | data-driven block definition + spawn bundle/system                    |
+| `CurrentBlockData` dictionary            | `GridIndex: HashMap<IVec2, Entity>` + components                      |
+| interface `IActivatable` 등              | marker/component + event-driven systems                               |
+| Coroutine/WaitForSeconds                 | Timer component/resource + systems                                    |
+| UnityEvent/Button callback               | UI interaction events                                                 |
+| PlayerPrefs                              | platform persistence adapter                                          |
+| Resources.LoadAll                        | asset manifest + Bevy AssetServer/loader                              |
+| Rigidbody2D/Collider2D                   | 선택한 2D physics backend components                                  |
+| DistanceJoint2D                          | distance/rope joint adapter 또는 deterministic custom constraint      |
+| LineRenderer+EdgeCollider                | laser path resource + mesh/line rendering + segment colliders         |
 
 ## 4. 데이터 모델 초안
 
@@ -83,7 +81,6 @@ Serde layer에서는 현행 문자열/숫자를 그대로 받고 domain 변환�
 
 FixedUpdate의 권장 system set:
 
-```text
 CollectInputIntent
 → ApplyPlayerForces
 → PhysicsStep
@@ -96,18 +93,15 @@ CollectInputIntent
 → ResolveGridMoveCommands
 → RefreshDirtyLasers
 → EvaluateClearCondition
-```
 
 Update schedule:
 
-```text
 UI interaction / dialog state
 Timers and coroutine-equivalent state machines
 Camera follow
 Aim and rope visuals
 Network task polling
 Presentation sync
-```
 
 명시적 ordering과 deferred command 경계를 두어 Unity callback 순서 의존을 줄인다.
 

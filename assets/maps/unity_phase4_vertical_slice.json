@@ -1,0 +1,96 @@
+{
+	"map_name": "editor_map",
+	"author": "Guest",
+	"map_settings": {
+		"time_limit": 60.0,
+		"show_time_ranking": false,
+		"star_count": 1,
+		"size": {
+			"width": 25,
+			"height": 15
+		},
+		"tp1_exit": {
+			"x": -1,
+			"y": -1
+		},
+		"tp2_exit": {
+			"x": -1,
+			"y": -1
+		},
+		"portal1_positions": {
+			"a_px": -1,
+			"a_py": -1,
+			"b_px": -1,
+			"b_py": -1
+		},
+		"portal2_positions": {
+			"a_px": -1,
+			"a_py": -1,
+			"b_px": -1,
+			"b_py": -1
+		},
+		"sw_el": true,
+		"sw_b1": true,
+		"sw_b2": true
+	},
+	"blocks": [
+		{
+			"x": 2,
+			"y": 2,
+			"block": {
+				"type": "item",
+				"name": "ball",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 2,
+			"block": {
+				"type": "item",
+				"name": "star",
+				"dir": 0
+			}
+		},
+		{
+			"x": 2,
+			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 8,
+			"y": 0,
+			"block": {
+				"type": "spike",
+				"name": "s_normal",
+				"dir": 1
+			}
+		},
+		{
+			"x": 10,
+			"y": 0,
+			"block": {
+				"type": "funcblock",
+				"name": "fb_jump",
+				"dir": 0
+			}
+		}
+	],
+	"block_options": [
+		{
+			"x": 6,
+			"y": 2,
+			"name": "star",
+			"options": [
+				{
+					"value_name": "Scale",
+					"value": 0.7
+				}
+			]
+		}
+	]
+}
