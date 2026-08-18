@@ -1,6 +1,6 @@
 use super::{
-    DeadlySpike, PendingPlayInteractions, PlayInteraction, PlayInteractionSet, PlayerBall,
-    SpikeSensorCollider,
+    DeadlySpike, PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet,
+    PlayInteractionSet, PlayerBall, SpikeSensorCollider,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -11,7 +11,9 @@ impl Plugin for SpikeDeathPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PhysicsSchedule,
-            collect_started_spike_interactions.in_set(PlayInteractionSet::Collect),
+            collect_started_spike_interactions
+                .in_set(PlayInteractionSet::Collect)
+                .in_set(PlayInteractionCollectSet::Death),
         );
     }
 }

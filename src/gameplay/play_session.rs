@@ -22,6 +22,14 @@ impl Plugin for PlaySessionPlugin {
                         .before(PhysicsStepSystems::Sleeping),
                 ),
             )
+            .configure_sets(
+                PhysicsSchedule,
+                (
+                    PlayInteractionCollectSet::Death,
+                    PlayInteractionCollectSet::Collection,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PhysicsSchedule,
                 advance_play_session_time.in_set(PlaySessionSet::AdvanceTime),
@@ -42,6 +50,12 @@ pub enum PlaySessionSet {
 pub enum PlayInteractionSet {
     Collect,
     Resolve,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PlayInteractionCollectSet {
+    Death,
+    Collection,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

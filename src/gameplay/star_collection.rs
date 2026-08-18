@@ -1,6 +1,6 @@
 use super::{
     BLOCK_WORLD_SIZE, CollectedStar, CollectibleStar, MapSpawnSet, PendingPlayInteractions,
-    PlayInteraction, PlayInteractionSet, PlayerBall,
+    PlayInteraction, PlayInteractionCollectSet, PlayInteractionSet, PlayerBall,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -16,7 +16,9 @@ impl Plugin for StarCollectionPlugin {
         app.add_systems(Update, attach_star_sensors.after(MapSpawnSet))
             .add_systems(
                 PhysicsSchedule,
-                collect_started_star_interactions.in_set(PlayInteractionSet::Collect),
+                collect_started_star_interactions
+                    .in_set(PlayInteractionSet::Collect)
+                    .in_set(PlayInteractionCollectSet::Collection),
             );
     }
 }
