@@ -1,4 +1,4 @@
-use super::{CollectedStar, CollectibleStar};
+use super::{ActivePlayWorld, CollectedStar, CollectibleStar, PlayWorld};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -199,6 +199,8 @@ fn resolve_pending_play_interactions(
     mut commands: Commands,
     mut pending: ResMut<PendingPlayInteractions>,
     mut session: ResMut<PlaySession>,
+    active_play_world: Option<Res<ActivePlayWorld>>,
+    play_worlds: Query<&PlayWorld>,
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
 ) {
     let mut interactions = std::mem::take(&mut pending.interactions);
@@ -208,6 +210,12 @@ fn resolve_pending_play_interactions(
     if !session.is_playing() {
         return;
     }
+
+    let required_stars = active_play_world
+        .as_ref()
+        .and_then(|active_play_world| active_play_world.root())
+        .and_then(|root| play_worlds.get(root).ok())
+        .map(|play_world| play_world.definition().settings.required_stars);
 
     for interaction in interactions {
         match interaction {
@@ -235,6 +243,16 @@ fn resolve_pending_play_interactions(
                     Visibility::Hidden,
                     ColliderDisabled,
                 ));
+
+                if required_stars
+                    .is_some_and(|required_stars| session.collected_stars() >= required_stars)
+                {
+                    session.mark_cleared();
+
+                    // 마지막 별을 먹은 순간 이번 플레이는 종료됩니다.
+                    // 같은 틱의 후속 게임 규칙도 실행하지 않습니다.
+                    break;
+                }
             }
 
             PlayInteraction::Switch { .. } => {

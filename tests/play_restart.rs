@@ -4,10 +4,11 @@ use bb_fme_bevy::{
     domain::{GridPosition, ValidatedMap},
     gameplay::{
         ActivePlayWorld, CollectedStar, GameplayPhysicsPlugin, GridIndex, MapCamera,
-        MapPresentationPlugin, MapSpawnPlugin, PHYSICS_HZ, PendingPlayInteractions,
-        PlayInteraction, PlayRestartPlugin, PlaySession, PlaySessionPlugin, PlaySessionState,
-        PlayWorld, PlayerBall, PlayerCameraPlugin, RestartPlayWorld, RuntimeBlock,
-        SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider, StarCollectionPlugin,
+        MapPresentationPlugin, MapSpawnPlugin, PHYSICS_HZ, PendingPlayInteractions, PlayHud,
+        PlayHudPlugin, PlayInteraction, PlayRestartPlugin, PlaySession, PlaySessionPlugin,
+        PlaySessionState, PlayWorld, PlayerBall, PlayerCameraPlugin, RestartPlayWorld,
+        RuntimeBlock, SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider,
+        StarCollectionPlugin,
     },
     map::MapDocument,
 };
@@ -44,6 +45,7 @@ fn app_with_restartable_map() -> (App, ValidatedMap) {
         GameplayPhysicsPlugin,
         PlaySessionPlugin,
         PlayRestartPlugin,
+        PlayHudPlugin,
         StarCollectionPlugin,
         SpikeDeathPlugin,
         MapPresentationPlugin,
@@ -65,6 +67,18 @@ fn app_with_restartable_map() -> (App, ValidatedMap) {
     )));
 
     (app, map)
+}
+
+fn hud_text(app: &mut App) -> String {
+    let world = app.world_mut();
+
+    let mut huds = world.query_filtered::<&Text, With<PlayHud>>();
+
+    let texts: Vec<String> = huds.iter(world).map(|text| text.0.clone()).collect();
+
+    assert_eq!(texts.len(), 1);
+
+    texts[0].clone()
 }
 
 fn active_root(app: &App) -> Entity {
@@ -139,24 +153,30 @@ fn restart_restores_world_session_star_player_and_camera() {
         .entity_at(GridPosition::new(16, 2))
         .expect("star must be indexed");
 
-    // 별을 먹은 상태를 만듭니다.
+    // 마지막 별을 먹어 클리어 상태를 만듭니다.
     app.world_mut()
         .resource_mut::<PendingPlayInteractions>()
         .push(PlayInteraction::collection(previous_star));
 
     app.update();
 
-    assert_eq!(app.world().resource::<PlaySession>().collected_stars(), 1);
+    let session = app.world().resource::<PlaySession>();
+
+    assert_eq!(session.state(), PlaySessionState::Cleared);
+    assert_eq!(session.collected_stars(), 1);
 
     assert!(app.world().get::<CollectedStar>(previous_star).is_some());
 
-    // 사망 상태까지 만들어서
-    // 사망 이후에도 재시작 가능한지 검증합니다.
-    app.world_mut().resource_mut::<PlaySession>().mark_dead();
+    let clear_time = session.elapsed_seconds();
+
+    // Cleared 이후 시간이 정지하는지 확인합니다.
+    for _ in 0..5 {
+        app.update();
+    }
 
     assert_eq!(
-        app.world().resource::<PlaySession>().state(),
-        PlaySessionState::Dead
+        app.world().resource::<PlaySession>().elapsed_seconds(),
+        clear_time
     );
 
     // 공의 위치와 속도를 일부러 크게 망가뜨립니다.
@@ -188,7 +208,7 @@ fn restart_restores_world_session_star_player_and_camera() {
         .expect("camera must have Transform")
         .translation = Vec3::new(32.0, 22.0, 0.0);
 
-    // 핵심: restart command 하나만 보냅니다.
+    // restart command
     app.world_mut().write_message(RestartPlayWorld);
 
     app.update();
@@ -255,7 +275,6 @@ fn restart_restores_world_session_star_player_and_camera() {
     assert_eq!(velocity.0, Vec2::ZERO);
 
     assert!(app.world().get::<CollectedStar>(new_star).is_none());
-
     assert!(app.world().get::<ColliderDisabled>(new_star).is_none());
 
     assert_eq!(camera_position(&mut app), Vec2::new(12.0, 7.0));
@@ -329,5 +348,10 @@ fn restarting_same_map_100_times_does_not_leak_entities_or_state() {
         assert_eq!(session.elapsed_seconds(), 0.0);
 
         previous_root = next_root;
+
+        assert_eq!(
+            hud_text(&mut app),
+            "Stars: 0 / 1\nTime: 0.00\nState: Playing\nR: Restart"
+        );
     }
 }
