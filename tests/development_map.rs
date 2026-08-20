@@ -24,8 +24,8 @@ fn development_plugin_spawns_the_embedded_map_on_startup() {
 
     assert_eq!(
         play_world.definition().map_name,
-        "phase5_camera_follow_sandbox"
+        "phase8_jump_boundary_sandbox"
     );
 
-    assert_eq!(app.world().resource::<GridIndex>().len(), 24);
+    assert_eq!(app.world().resource::<GridIndex>().len(), 28);
 }

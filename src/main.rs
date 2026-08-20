@@ -1,8 +1,8 @@
 use avian2d::prelude::PhysicsDebugPlugin;
 use bb_fme_bevy::gameplay::{
-    BlockVisualPlugin, DevelopmentMapPlugin, GameplayPhysicsPlugin, MapPresentationPlugin,
-    MapSpawnPlugin, PlayHudPlugin, PlayRestartPlugin, PlaySessionPlugin, PlayerCameraPlugin,
-    PlayerControlPlugin, SpikeDeathPlugin, StarCollectionPlugin,
+    BlockVisualPlugin, DevelopmentMapPlugin, GameplayPhysicsPlugin, MapBoundaryPlugin,
+    MapPresentationPlugin, MapSpawnPlugin, PlayHudPlugin, PlayRestartPlugin, PlaySessionPlugin,
+    PlayerCameraPlugin, PlayerControlPlugin, SpikeDeathPlugin, StarCollectionPlugin,
 };
 use bevy::prelude::*;
 
@@ -15,6 +15,7 @@ fn main() {
             PlaySessionPlugin,
             PlayRestartPlugin,
             PlayHudPlugin,
+            MapBoundaryPlugin,
             StarCollectionPlugin,
             SpikeDeathPlugin,
             PlayerControlPlugin,

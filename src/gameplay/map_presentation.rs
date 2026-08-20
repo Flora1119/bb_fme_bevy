@@ -1,6 +1,6 @@
 use super::{
-    BLOCK_WORLD_SIZE, BlockVisualSet, CollectibleStar, DeadlySpike, MapSpawnSet, PlayWorld,
-    PlayerBall, SolidBlock,
+    BLOCK_WORLD_SIZE, BlockVisualSet, CollectibleStar, DeadlySpike, JumpBlock, MapSpawnSet,
+    PlayWorld, PlayerBall, SolidBlock,
 };
 use bevy::{camera::ScalingMode, prelude::*};
 
@@ -18,6 +18,10 @@ pub const SOLID_COLOR: Color = Color::srgb(0.30, 0.36, 0.46);
 pub const SPIKE_VISUAL_SIZE: Vec2 = Vec2::splat(0.90 * BLOCK_WORLD_SIZE);
 pub const SPIKE_COLOR: Color = Color::srgb(0.95, 0.20, 0.25);
 
+pub const JUMP_BLOCK_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
+
+pub const JUMP_BLOCK_COLOR: Color = Color::srgb(1.00, 0.48, 0.12);
+
 pub struct MapPresentationPlugin;
 
 impl Plugin for MapPresentationPlugin {
@@ -32,6 +36,7 @@ impl Plugin for MapPresentationPlugin {
                     add_star_visuals,
                     add_solid_visuals,
                     add_spike_visuals,
+                    add_jump_block_visuals,
                 )
                     .in_set(MapPresentationSet)
                     .after(MapSpawnSet)
@@ -117,7 +122,7 @@ fn add_star_visuals(
 
 fn add_solid_visuals(
     mut commands: Commands,
-    solids: Query<Entity, (Added<SolidBlock>, Without<Sprite>)>,
+    solids: Query<Entity, (Added<SolidBlock>, Without<JumpBlock>, Without<Sprite>)>,
 ) {
     for entity in &solids {
         commands.entity(entity).insert((
@@ -135,6 +140,18 @@ fn add_spike_visuals(
         commands.entity(entity).insert((
             PlaceholderVisual,
             Sprite::from_color(SPIKE_COLOR, SPIKE_VISUAL_SIZE),
+        ));
+    }
+}
+
+fn add_jump_block_visuals(
+    mut commands: Commands,
+    jump_blocks: Query<Entity, (Added<JumpBlock>, Without<Sprite>)>,
+) {
+    for entity in &jump_blocks {
+        commands.entity(entity).insert((
+            PlaceholderVisual,
+            Sprite::from_color(JUMP_BLOCK_COLOR, JUMP_BLOCK_VISUAL_SIZE),
         ));
     }
 }

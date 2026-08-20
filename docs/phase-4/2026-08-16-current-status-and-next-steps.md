@@ -47,8 +47,8 @@ Unity 형식 JSON
 - `cargo fmt --all -- --check`: 통과
 - `cargo run --quiet`: 12초 동안 오류 없이 구동한 뒤 점검용 timeout으로 종료
 - `cargo clippy --all-targets -- -D warnings`: 실패
-  - `camera_follow.rs`의 카메라 `Query` 타입 복잡도 1건
-  - `tests/block_colliders.rs`의 불필요한 `mut` 경고 1건도 정리 필요
+    - `camera_follow.rs`의 카메라 `Query` 타입 복잡도 1건
+    - `tests/block_colliders.rs`의 불필요한 `mut` 경고 1건도 정리 필요
 
 `cargo run` 점검은 시작·로딩·초기 런타임 오류만 확인했다.
 실제 A/D 조작감과 카메라 이동 감각은 사람이 직접 플레이해서 확인해야 한다.
@@ -59,25 +59,25 @@ Unity 형식 JSON
 - 브랜치: `main`, `origin/main`과 같은 커밋
 - 최근 커밋: `5c154ec 포탈 다시 작업 중ㅠㅠ`
 - 기존 로컬 변경:
-  - `BB_FME.slnx`
-  - `Packages/manifest.json`
-  - `Packages/packages-lock.json`
-  - `ProjectSettings/ProjectVersion.txt`
+    - `BB_FME.slnx`
+    - `Packages/manifest.json`
+    - `Packages/packages-lock.json`
+    - `ProjectSettings/ProjectVersion.txt`
 
 이 변경들은 이번 점검에서 수정하지 않았다. Unity판은 계속 동작 기준과 JSON·블록
 행동을 확인하는 참조 구현으로 보존한다.
 
 ## 3. 단계별 진행 판정
 
-| 단계 | 판정 | 완료된 핵심 | 남아 있는 핵심 |
-|---|---|---|---|
-| 0. 기준 명세 | 정적 명세 완료 | 씬·JSON·블록 82종·API·물리 기준 문서 | Unity 실행 캡처, 실제 저장 맵/API 응답 fixture |
-| 1. Bevy 기반 | 최소 기반 완료 | 실행 프로젝트, Plugin 분리, 테스트·포맷 기반 | AppState/로딩 상태, 엄격한 Clippy 통과, CI |
-| 2. JSON·에셋 | 구조 구현 완료, 실데이터 확인 필요 | 역직렬화·round-trip, config/맵 검증, typed projection, sprite registry | Unity에서 실제로 내보낸 맵 fixture, 실제 맵 저장 round-trip |
-| 3. 물리 검증 | 완료 | Avian2D 채택, 50Hz, 바닥·천장·벽, Swept CCD, 장기 안정성 | 능력 발동 첫 틱·이동 블록·중력 반전은 해당 기능 단계에서 재검증 |
-| 4. 수직 단면 | 진행 중 | 공 생성, 일반 블록, 바운스, A/D·방향키 이동, 카메라 추적 | 별 수집, 가시 사망, 재시작, 클리어, 타이머, 점프 블록, 맵 경계 |
-| 5. 전체 블록 | 시작 전 | 일부 블록은 표시·Collider 분류만 존재 | 능력·스위치·동적 블록·포탈·레이저 등 실제 규칙 전체 |
-| 6~10 | 시작 전 | 설계 방향만 문서화 | 상태/테스트 모드, 에디터, 온라인, 플랫폼, 출시 전환 |
+| 단계         | 판정                               | 완료된 핵심                                                            | 남아 있는 핵심                                                  |
+| ------------ | ---------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 0. 기준 명세 | 정적 명세 완료                     | 씬·JSON·블록 82종·API·물리 기준 문서                                   | Unity 실행 캡처, 실제 저장 맵/API 응답 fixture                  |
+| 1. Bevy 기반 | 최소 기반 완료                     | 실행 프로젝트, Plugin 분리, 테스트·포맷 기반                           | AppState/로딩 상태, 엄격한 Clippy 통과, CI                      |
+| 2. JSON·에셋 | 구조 구현 완료, 실데이터 확인 필요 | 역직렬화·round-trip, config/맵 검증, typed projection, sprite registry | Unity에서 실제로 내보낸 맵 fixture, 실제 맵 저장 round-trip     |
+| 3. 물리 검증 | 완료                               | Avian2D 채택, 50Hz, 바닥·천장·벽, Swept CCD, 장기 안정성               | 능력 발동 첫 틱·이동 블록·중력 반전은 해당 기능 단계에서 재검증 |
+| 4. 수직 단면 | 진행 중                            | 공 생성, 일반 블록, 바운스, A/D·방향키 이동, 카메라 추적               | 별 수집, 가시 사망, 재시작, 클리어, 타이머, 점프 블록, 맵 경계  |
+| 5. 전체 블록 | 시작 전                            | 일부 블록은 표시·Collider 분류만 존재                                  | 능력·스위치·동적 블록·포탈·레이저 등 실제 규칙 전체             |
+| 6~10         | 시작 전                            | 설계 방향만 문서화                                                     | 상태/테스트 모드, 에디터, 온라인, 플랫폼, 출시 전환             |
 
 ### 4단계 세부 체크리스트
 
@@ -326,4 +326,3 @@ struct PlaySession {
 - Android 최적화
 - 포탈·레이저의 최종 구현
 - Unity판 삭제 또는 대규모 리팩터링
-

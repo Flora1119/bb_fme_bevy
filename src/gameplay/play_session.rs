@@ -26,6 +26,7 @@ impl Plugin for PlaySessionPlugin {
                 PhysicsSchedule,
                 (
                     PlayInteractionCollectSet::Death,
+                    PlayInteractionCollectSet::BoundaryDeath,
                     PlayInteractionCollectSet::Collection,
                 )
                     .chain(),
@@ -55,6 +56,7 @@ pub enum PlayInteractionSet {
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayInteractionCollectSet {
     Death,
+    BoundaryDeath,
     Collection,
 }
 

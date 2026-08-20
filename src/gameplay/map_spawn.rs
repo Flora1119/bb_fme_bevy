@@ -1,4 +1,4 @@
-use super::{CollectibleStar, DeadlySpike, PlayerBall, SolidBlock};
+use super::{CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock};
 use crate::{
     block::{BlockCategory, BlockId},
     domain::{CardinalDirection, GridPosition, ValidatedBlockOption, ValidatedMap},
@@ -153,9 +153,15 @@ fn spawn_requested_map(
             "ball" => {
                 entity_commands.insert(PlayerBall);
             }
+
             "star" => {
                 entity_commands.insert(CollectibleStar);
             }
+
+            "fb_jump" => {
+                entity_commands.insert((SolidBlock, JumpBlock::standard()));
+            }
+
             _ => {}
         }
 
