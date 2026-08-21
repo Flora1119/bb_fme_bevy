@@ -3,7 +3,7 @@ use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
 
 pub const PLAYER_MAX_HORIZONTAL_SPEED: f32 = 5.0;
-pub const PLAYER_HORIZONTAL_ACCELERATION: f32 = 20.0;
+pub const PLAYER_HORIZONTAL_ACCELERATION: f32 = 30.0;
 pub const PLAYER_HORIZONTAL_DECELERATION: f32 = 8.0;
 pub const PLAYER_HORIZONTAL_STOP_THRESHOLD: f32 = 0.5;
 

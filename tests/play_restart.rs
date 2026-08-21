@@ -6,9 +6,8 @@ use bb_fme_bevy::{
         ActivePlayWorld, CollectedStar, GameplayPhysicsPlugin, GridIndex, MapBoundaryPlugin,
         MapCamera, MapPresentationPlugin, MapSpawnPlugin, PHYSICS_HZ, PendingPlayInteractions,
         PlayHud, PlayHudPlugin, PlayInteraction, PlayRestartPlugin, PlaySession, PlaySessionPlugin,
-        PlaySessionState, PlayWorld, PlayerBall, PlayerCameraPlugin, RestartPlayWorld,
-        RuntimeBlock, SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider,
-        StarCollectionPlugin,
+        PlaySessionState, PlayWorld, PlayerCameraPlugin, RestartPlayWorld, RuntimeBlock,
+        SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider, StarCollectionPlugin,
     },
     map::MapDocument,
 };

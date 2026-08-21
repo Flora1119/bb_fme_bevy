@@ -19,7 +19,7 @@ pub const WALL_BOUNCE_DAMPING_RATIO: f32 = 0.3;
 // 벽을 향하는 속도가 이 값 이하라면,
 // 실제 충돌이 아니라 수치 오차 또는 스치기 접촉으로 취급합니다.
 const WALL_APPROACH_EPSILON: f32 = 0.01;
-const CONTACT_ANGLE_EPSILON: f32 = 0.0001;
+const FLOOR_APPROACH_EPSILON: f32 = 0.01;
 
 pub const PLAYER_COLLIDER_RADIUS: f32 = 0.2 * BLOCK_WORLD_SIZE;
 pub const PLAYER_MASS: f32 = 5.0;
@@ -39,36 +39,16 @@ fn floor_contact_threshold() -> f32 {
     FLOOR_CONTACT_ANGLE_DEGREES.to_radians().cos()
 }
 
-fn is_floor_contact(floor_dot: f32) -> bool {
-    floor_dot >= FLOOR_COLLISION_THRESHOLD - CONTACT_ANGLE_EPSILON
-}
-
 #[test]
-fn floor_contact_boundary_matches_45_degrees() {
-    let dot_at_45 = 45.0_f32.to_radians().cos();
-
-    let dot_at_46 = 46.0_f32.to_radians().cos();
-
-    assert!(is_floor_contact(dot_at_45));
-    assert!(!is_floor_contact(dot_at_46));
-}
-
-#[test]
-fn floor_contact_has_a_small_corner_safety_margin() {
+fn floor_contact_threshold_is_45_degrees() {
     let threshold = floor_contact_threshold();
 
-    let dot_40 = 40.0_f32.to_radians().cos();
-
-    let dot_42 = 42.0_f32.to_radians().cos();
-
     let dot_44 = 44.0_f32.to_radians().cos();
-
+    let dot_45 = 45.0_f32.to_radians().cos();
     let dot_46 = 46.0_f32.to_radians().cos();
 
-    assert!(dot_40 >= threshold);
-    assert!(dot_42 >= threshold);
-
-    assert!(dot_44 < threshold);
+    assert!(dot_44 >= threshold);
+    assert!(dot_45 >= threshold);
     assert!(dot_46 < threshold);
 }
 
@@ -88,7 +68,7 @@ impl Plugin for GameplayPhysicsPlugin {
             )
             .add_systems(
                 PhysicsSchedule,
-                collect_started_solid_contacts
+                collect_solid_contacts
                     .after(PhysicsStepSystems::NarrowPhase)
                     .before(PhysicsStepSystems::Solver),
             )
@@ -205,8 +185,7 @@ fn attach_block_colliders(
     }
 }
 
-fn collect_started_solid_contacts(
-    mut collision_starts: MessageReader<CollisionStart>,
+fn collect_solid_contacts(
     collisions: Collisions,
     gravity: Res<Gravity>,
     players: Query<&LinearVelocity, With<PlayerBall>>,
@@ -214,11 +193,10 @@ fn collect_started_solid_contacts(
     jump_blocks: Query<&JumpBlock>,
     mut pending: ResMut<PendingSolidContactResponses>,
 ) {
-    // 이전 물리 틱에 남은 임시 결과를 제거합니다.
+    // 이번 물리 틱의 현재 접촉 상태를 새로 수집합니다.
     pending.0.clear();
 
     let gravity_direction = gravity.0.normalize_or_zero();
-
     let bounce_direction = -gravity_direction;
 
     if gravity_direction == Vec2::ZERO {
@@ -226,16 +204,11 @@ fn collect_started_solid_contacts(
     }
 
     // 중력에 수직인 축입니다.
-    //
-    // 현재 아래 방향 중력에서는 Vec2::X와 같으며,
-    // 중력이 반전돼도 벽 반동 계산에 그대로 사용할 수 있습니다.
     let wall_axis = Vec2::new(bounce_direction.y, -bounce_direction.x);
 
-    for event in collision_starts.read() {
-        let Some(contact_pair) = collisions.get(event.collider1, event.collider2) else {
-            continue;
-        };
-
+    // CollisionStart만 보는 대신,
+    // 현재 실제로 접촉 중인 모든 pair를 매 물리 틱 검사합니다.
+    for contact_pair in collisions.iter() {
         let body1 = contact_pair.body1.unwrap_or(contact_pair.collider1);
 
         let body2 = contact_pair.body2.unwrap_or(contact_pair.collider2);
@@ -263,11 +236,7 @@ fn collect_started_solid_contacts(
 
             let normal_floor_dot = normal_toward_player.dot(bounce_direction);
 
-            // 공 중심 A → 실제 접촉점 K 방향을 구합니다.
-            //
-            // anchor1 / anchor2는 각 물체의 중심을 기준으로 한
-            // 접촉점 벡터이므로, 원형 플레이어에서는
-            // 그림의 AK와 거의 정확히 같은 의미입니다.
+            // 공 중심 A -> 실제 접촉점 K
             let mut lowest_floor_alignment: Option<f32> = None;
 
             for point in &manifold.points {
@@ -283,7 +252,7 @@ fn collect_started_solid_contacts(
                     continue;
                 }
 
-                // 그림의 ∠KAB 판정입니다.
+                // GeoGebra에서 정한 ∠KAB 판정입니다.
                 //
                 // A -> K : contact_direction
                 // A -> B : gravity_direction
@@ -301,7 +270,7 @@ fn collect_started_solid_contacts(
 
             let floor_threshold = floor_contact_threshold();
 
-            // 1. 점프 가능한 바닥 영역
+            // 1. 45도 이하: 바닥
             if contact_floor_alignment >= floor_threshold {
                 started_contacts.floor = true;
 
@@ -318,11 +287,8 @@ fn collect_started_solid_contacts(
                 continue;
             }
 
-            // 2. 공의 아래쪽에는 닿았지만
-            // 점프 허용 각도를 벗어난 모서리
-            //
-            // 여기서는 바닥 바운스도,
-            // 벽 반동도 적용하지 않습니다.
+            // 2. 공의 아래쪽이지만 45도 초과:
+            // 모서리 glide
             if contact_floor_alignment > 0.0 {
                 started_contacts.corner_glide = true;
 
@@ -392,17 +358,20 @@ fn apply_solid_contact_response(
 
         let current_bounce_speed = velocity.0.dot(bounce_direction);
 
+        let incoming_bounce_speed = started_contacts.incoming_velocity.dot(bounce_direction);
+
         if started_contacts.corner_glide {
             continue;
         }
-
         // 1. 바닥 접촉
         if started_contacts.floor {
-            // 게임플레이가 진행 중이고 JumpBlock을 밟았다면
-            // 중력 반대 방향 속도를 정확히 launch_speed로 맞춥니다.
-            //
-            // Unity의 v.y = jumpPower와 같은 "속도 지정" 방식이지만,
-            // 방향은 현재 중력을 기준으로 일반화합니다.
+            // 이미 바닥에서 멀어지는 중이라면
+            // 같은 지속 접촉에서 바운스를 다시 발동하지 않습니다.
+            if incoming_bounce_speed > FLOOR_APPROACH_EPSILON {
+                continue;
+            }
+
+            // JumpBlock
             if gameplay_is_playing {
                 if let Some(jump_speed) = started_contacts.jump_speed {
                     velocity.0 += bounce_direction * (jump_speed - current_bounce_speed);
@@ -411,7 +380,7 @@ fn apply_solid_contact_response(
                 }
             }
 
-            // 일반 블록의 기본 바운스입니다.
+            // 일반 블록
             if current_bounce_speed < MIN_BOUNCE_VELOCITY {
                 velocity.0 += bounce_direction * (MIN_BOUNCE_VELOCITY - current_bounce_speed);
             }
