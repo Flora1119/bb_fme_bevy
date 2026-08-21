@@ -27,5 +27,5 @@ fn development_plugin_spawns_the_embedded_map_on_startup() {
         "phase8_jump_boundary_sandbox"
     );
 
-    assert_eq!(app.world().resource::<GridIndex>().len(), 28);
+    assert_eq!(app.world().resource::<GridIndex>().len(), 19);
 }

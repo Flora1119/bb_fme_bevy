@@ -33,7 +33,7 @@ const PLAYER_COLLIDER_COLOR: Color = Color::srgb(0.15, 0.80, 1.00);
 const SOLID_COLLIDER_COLOR: Color = Color::srgb(0.20, 1.00, 0.35);
 const SPIKE_SENSOR_COLOR: Color = Color::srgb(1.00, 0.15, 0.15);
 
-pub const FLOOR_CONTACT_ANGLE_DEGREES: f32 = 43.0;
+pub const FLOOR_CONTACT_ANGLE_DEGREES: f32 = 45.0;
 
 fn floor_contact_threshold() -> f32 {
     FLOOR_CONTACT_ANGLE_DEGREES.to_radians().cos()
