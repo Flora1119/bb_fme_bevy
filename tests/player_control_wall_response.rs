@@ -104,7 +104,7 @@ fn launch_into_wall_and_capture_rebound(
     app: &mut App,
     player: Entity,
     launch_direction: f32,
-) -> f32 {
+) -> (f32, Entity) {
     assert!(launch_direction == -1.0 || launch_direction == 1.0);
     assert!(
         app.world().get::<PlayerInputIntent>(player).is_some(),
@@ -118,14 +118,17 @@ fn launch_into_wall_and_capture_rebound(
 
     let wall_center_x = PLAYER_START_X + WALL_DISTANCE_FROM_PLAYER * launch_direction;
 
-    app.world_mut().spawn((
-        Name::new("Test wall for player control"),
-        SolidBlock,
-        BlockPhysicsBody,
-        RigidBody::Static,
-        Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
-        Transform::from_xyz(wall_center_x, 2.0, 0.0),
-    ));
+    let wall = app
+        .world_mut()
+        .spawn((
+            Name::new("Test wall for player control"),
+            SolidBlock,
+            BlockPhysicsBody,
+            RigidBody::Static,
+            Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
+            Transform::from_xyz(wall_center_x, 2.0, 0.0),
+        ))
+        .id();
 
     set_horizontal_input(app, launch_direction as i8);
 
@@ -147,7 +150,7 @@ fn launch_into_wall_and_capture_rebound(
                 "expected wall rebound velocity near {expected_rebound}, found {velocity}"
             );
 
-            return velocity;
+            return (velocity, wall);
         }
     }
 
@@ -161,11 +164,11 @@ fn input_in_the_rebound_direction_accelerates_toward_control_speed() {
     for launch_direction in [-1.0, 1.0] {
         let mut app = app_with_player_control();
         let player = player_ball(&app);
-        let rebound_velocity =
+        let (rebound_velocity, _wall) =
             launch_into_wall_and_capture_rebound(&mut app, player, launch_direction);
 
         // 벽 반동 3.0은 일반 제어 목표 속도 5.0보다 느립니다.
-        // 반동 방향을 계속 입력하면 매 틱 0.4씩 가속하고,
+        // 반동 방향을 계속 입력하면 매 틱 0.6씩 가속하고,
         // 일반 제어 목표 속도에서 멈춥니다.
         set_horizontal_input(&mut app, -launch_direction as i8);
 
@@ -188,18 +191,29 @@ fn opposite_input_reclaims_wall_rebound_speed_at_the_acceleration_rate() {
 
     for launch_direction in [-1.0, 1.0] {
         let mut app = app_with_player_control();
+
         let player = player_ball(&app);
-        let rebound_velocity =
+
+        let (rebound_velocity, wall) =
             launch_into_wall_and_capture_rebound(&mut app, player, launch_direction);
 
-        // 튕기는 동안 다시 벽 쪽을 입력하면 매 물리 틱 0.4씩
-        // 속도를 되찾되, 반동을 즉시 일반 최대 속도로 잘라서는 안 됩니다.
+        // 여기서부터는 "반동 이후의 입력 제어"만 검증합니다.
+        //
+        // 가속도가 커지면 관찰 도중 플레이어가
+        // 테스트 벽으로 다시 돌아가 두 번째 반동을 받을 수 있으므로,
+        // 최초 반동을 얻은 뒤 벽을 제거합니다.
+        app.world_mut().entity_mut(wall).despawn();
+
+        // 튕기는 동안 다시 벽 쪽을 입력하면
+        // 현재 Phase 4 튜닝값에서는 매 물리 틱 0.6씩
+        // 속도를 되찾습니다.
         set_horizontal_input(&mut app, launch_direction as i8);
 
         for tick in 1..=OBSERVATION_TICKS {
             app.update();
 
             let expected = rebound_velocity + velocity_step * launch_direction * tick as f32;
+
             assert_velocity_close(horizontal_velocity(&app, player), expected, tick);
         }
     }
@@ -212,7 +226,7 @@ fn neutral_input_decelerates_wall_rebound_at_the_release_rate() {
     for launch_direction in [-1.0, 1.0] {
         let mut app = app_with_player_control();
         let player = player_ball(&app);
-        let rebound_velocity =
+        let (rebound_velocity, _wall) =
             launch_into_wall_and_capture_rebound(&mut app, player, launch_direction);
 
         // 입력을 놓으면 매 물리 틱 0.16씩 0을 향해 감속합니다.

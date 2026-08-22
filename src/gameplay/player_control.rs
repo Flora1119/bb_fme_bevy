@@ -187,14 +187,15 @@ mod tests {
     }
 
     #[test]
-    fn held_input_accelerates_at_the_unity_equivalent_rate() {
+    fn held_input_accelerates_at_the_gameplay_tuned_rate() {
         assert_close(
             next_horizontal_velocity(0.0, 1.0, PHYSICS_DELTA_SECONDS),
-            0.4,
+            0.6,
         );
+
         assert_close(
             next_horizontal_velocity(0.0, -1.0, PHYSICS_DELTA_SECONDS),
-            -0.4,
+            -0.6,
         );
     }
 
@@ -238,7 +239,7 @@ mod tests {
         );
         assert_close(
             next_horizontal_velocity(12.0, -1.0, PHYSICS_DELTA_SECONDS),
-            11.6,
+            11.4,
         );
     }
 }
