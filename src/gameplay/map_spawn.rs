@@ -1,5 +1,6 @@
 use super::{
-    CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock, spike_has_solid_collider,
+    CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock, TransparentStar,
+    spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -162,6 +163,10 @@ fn spawn_requested_map(
 
             "star" => {
                 entity_commands.insert(CollectibleStar);
+            }
+
+            "star_empty" => {
+                entity_commands.insert((CollectibleStar, TransparentStar));
             }
 
             "fb_jump" => {

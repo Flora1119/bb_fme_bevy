@@ -10,6 +10,9 @@ pub struct CollectibleStar;
 pub struct CollectedStar;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TransparentStar;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SolidBlock;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]

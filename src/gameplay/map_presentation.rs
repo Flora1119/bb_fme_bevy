@@ -26,7 +26,7 @@ pub struct MapPresentationPlugin;
 
 impl Plugin for MapPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ClearColor(Color::srgb(0.04, 0.05, 0.08)))
+        app.insert_resource(ClearColor(Color::srgb(0.4, 0.4, 0.4)))
             .add_systems(Startup, spawn_map_camera)
             .add_systems(
                 Update,
