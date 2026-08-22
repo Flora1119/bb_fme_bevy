@@ -122,7 +122,15 @@ fn add_star_visuals(
 
 fn add_solid_visuals(
     mut commands: Commands,
-    solids: Query<Entity, (Added<SolidBlock>, Without<JumpBlock>, Without<Sprite>)>,
+    solids: Query<
+        Entity,
+        (
+            Added<SolidBlock>,
+            Without<DeadlySpike>,
+            Without<JumpBlock>,
+            Without<Sprite>,
+        ),
+    >,
 ) {
     for entity in &solids {
         commands.entity(entity).insert((

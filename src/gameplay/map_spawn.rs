@@ -1,4 +1,6 @@
-use super::{CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock};
+use super::{
+    CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock, spike_has_solid_collider,
+};
 use crate::{
     block::{BlockCategory, BlockId},
     domain::{CardinalDirection, GridPosition, ValidatedBlockOption, ValidatedMap},
@@ -145,6 +147,10 @@ fn spawn_requested_map(
             }
             BlockCategory::Spike => {
                 entity_commands.insert(DeadlySpike);
+
+                if spike_has_solid_collider(block.id.as_str()) {
+                    entity_commands.insert(SolidBlock);
+                }
             }
             _ => {}
         }

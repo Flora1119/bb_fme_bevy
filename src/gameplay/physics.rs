@@ -1,6 +1,6 @@
 use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, DeadlySpike, JumpBlock, MapSpawnSet, PlayInteractionSet,
-    PlaySession, PlayerBall, SolidBlock, solid_collider_geometry_for,
+    PlaySession, PlayerBall, SolidBlock, solid_collider_geometry_for, spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -158,9 +158,20 @@ fn attach_player_physics(
 
 fn attach_block_colliders(
     mut commands: Commands,
-    solids: Query<(Entity, Option<&BlockIdentity>), (With<SolidBlock>, Without<BlockPhysicsBody>)>,
-    spikes: Query<Entity, (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
+    solids: Query<
+        (Entity, Option<&BlockIdentity>),
+        (
+            With<SolidBlock>,
+            Without<DeadlySpike>,
+            Without<BlockPhysicsBody>,
+        ),
+    >,
+    spikes: Query<(Entity, Option<&BlockIdentity>), (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
 ) {
+    // 일반 SolidBlock
+    //
+    // DeadlySpike도 함께 가진 복합 가시는
+    // 아래 spikes 루프에서 별도로 처리합니다.
     for (entity, identity) in &solids {
         let geometry = solid_collider_geometry_for(identity.map(|identity| identity.id.as_str()));
 
@@ -185,28 +196,54 @@ fn attach_block_colliders(
         }
     }
 
-    for entity in &spikes {
+    // 가시 및 가시+블록 복합체
+    for (entity, identity) in &spikes {
+        let profile = spike_collider_profile_for(identity.map(|identity| identity.id.as_str()));
+
         commands
             .entity(entity)
             .insert((BlockPhysicsBody, RigidBody::Static));
 
-        commands.spawn((
-            Name::new("Collider: deadly spike sensor"),
-            SpikeSensorCollider,
-            Sensor,
-            CollisionEventsEnabled,
-            Collider::rectangle(SPIKE_SENSOR_SIZE.x, SPIKE_SENSOR_SIZE.y),
-            Transform::from_translation(SPIKE_SENSOR_OFFSET.extend(0.0)),
-            DebugRender::default().with_collider_color(SPIKE_SENSOR_COLOR),
-            ChildOf(entity),
-        ));
+        // s_b_* 계열의 Solid 부분
+        if let Some(geometry) = profile.solid() {
+            commands.spawn((
+                Name::new("Collider: solid spike block"),
+                SolidColliderChild,
+                Collider::rectangle(geometry.size().x, geometry.size().y),
+                Transform::from_translation(geometry.offset().extend(0.0)),
+                DebugRender::default().with_collider_color(SOLID_COLLIDER_COLOR),
+                ChildOf(entity),
+            ));
+        }
+
+        // 실제 Damage Trigger.
+        //
+        // s_b_two / s_b_o_two는
+        // 여기서 2개가 생성됩니다.
+        for (sensor_index, geometry) in profile.damage_sensors().iter().copied().enumerate() {
+            commands.spawn((
+                Name::new(format!(
+                    "Collider: deadly spike sensor {}",
+                    sensor_index + 1,
+                )),
+                SpikeSensorCollider,
+                Sensor,
+                CollisionEventsEnabled,
+                Collider::rectangle(geometry.size().x, geometry.size().y),
+                Transform::from_translation(geometry.offset().extend(0.0)),
+                DebugRender::default().with_collider_color(SPIKE_SENSOR_COLOR),
+                ChildOf(entity),
+            ));
+        }
     }
 }
+
 fn collect_solid_contacts(
     collisions: Collisions,
     gravity: Res<Gravity>,
     players: Query<&LinearVelocity, With<PlayerBall>>,
     solids: Query<(), With<SolidBlock>>,
+    spike_sensors: Query<(), With<SpikeSensorCollider>>,
     jump_blocks: Query<&JumpBlock>,
     mut pending: ResMut<PendingSolidContactResponses>,
 ) {
@@ -226,6 +263,16 @@ fn collect_solid_contacts(
     // CollisionStart만 보는 대신,
     // 현재 실제로 접촉 중인 모든 pair를 매 물리 틱 검사합니다.
     for contact_pair in collisions.iter() {
+        // 복합 가시의 Damage Sensor는 부모가 SolidBlock이더라도
+        // 실제 물리 표면이 아닙니다.
+        //
+        // 따라서 Solid 접촉 응답에서는 완전히 제외합니다.
+        if spike_sensors.contains(contact_pair.collider1)
+            || spike_sensors.contains(contact_pair.collider2)
+        {
+            continue;
+        }
+
         let body1 = contact_pair.body1.unwrap_or(contact_pair.collider1);
 
         let body2 = contact_pair.body2.unwrap_or(contact_pair.collider2);
