@@ -1,6 +1,6 @@
 use super::{
-    BLOCK_WORLD_SIZE, DeadlySpike, JumpBlock, MapSpawnSet, PlayInteractionSet, PlaySession,
-    PlayerBall, SolidBlock,
+    BLOCK_WORLD_SIZE, BlockIdentity, DeadlySpike, JumpBlock, MapSpawnSet, PlayInteractionSet,
+    PlaySession, PlayerBall, SolidBlock, solid_collider_geometry_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -94,6 +94,9 @@ pub struct PlayerPhysicsBody;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpikeSensorCollider;
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SolidColliderChild;
+
 #[derive(Resource, Debug, Default)]
 struct PendingSolidContactResponses(HashMap<Entity, StartedSolidContacts>);
 
@@ -155,16 +158,31 @@ fn attach_player_physics(
 
 fn attach_block_colliders(
     mut commands: Commands,
-    solids: Query<Entity, (With<SolidBlock>, Without<BlockPhysicsBody>)>,
+    solids: Query<(Entity, Option<&BlockIdentity>), (With<SolidBlock>, Without<BlockPhysicsBody>)>,
     spikes: Query<Entity, (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
 ) {
-    for entity in &solids {
-        commands.entity(entity).insert((
-            BlockPhysicsBody,
-            RigidBody::Static,
-            Collider::rectangle(SOLID_COLLIDER_SIZE.x, SOLID_COLLIDER_SIZE.y),
-            DebugRender::default().with_collider_color(SOLID_COLLIDER_COLOR),
-        ));
+    for (entity, identity) in &solids {
+        let geometry = solid_collider_geometry_for(identity.map(|identity| identity.id.as_str()));
+
+        commands
+            .entity(entity)
+            .insert((BlockPhysicsBody, RigidBody::Static));
+
+        if geometry.offset() == Vec2::ZERO {
+            commands.entity(entity).insert((
+                Collider::rectangle(geometry.size().x, geometry.size().y),
+                DebugRender::default().with_collider_color(SOLID_COLLIDER_COLOR),
+            ));
+        } else {
+            commands.spawn((
+                Name::new("Collider: offset solid block"),
+                SolidColliderChild,
+                Collider::rectangle(geometry.size().x, geometry.size().y),
+                Transform::from_translation(geometry.offset().extend(0.0)),
+                DebugRender::default().with_collider_color(SOLID_COLLIDER_COLOR),
+                ChildOf(entity),
+            ));
+        }
     }
 
     for entity in &spikes {
@@ -184,7 +202,6 @@ fn attach_block_colliders(
         ));
     }
 }
-
 fn collect_solid_contacts(
     collisions: Collisions,
     gravity: Res<Gravity>,

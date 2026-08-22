@@ -9,7 +9,7 @@ const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.js
 
 const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
-const UNITY_GOLDEN_MAP: &str = include_str!("../assets/maps/unity_phase4_vertical_slice.json");
+const UNITY_GOLDEN_MAP: &str = include_str!("../assets/maps/phase4_vertical_slice.json");
 
 #[test]
 fn unity_map_json_round_trips_without_data_loss() {

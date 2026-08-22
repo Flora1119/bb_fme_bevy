@@ -1,13 +1,13 @@
 {
-	"map_name": "unity_phase4_playthrough",
+	"map_name": "phase4_camera_follow_sandbox",
 	"author": "Development",
 	"map_settings": {
 		"time_limit": 60.0,
 		"show_time_ranking": false,
 		"star_count": 1,
 		"size": {
-			"width": 25,
-			"height": 15
+			"width": 45,
+			"height": 30
 		},
 		"tp1_exit": {
 			"x": -1,
@@ -35,7 +35,7 @@
 	},
 	"blocks": [
 		{
-			"x": 6,
+			"x": 12,
 			"y": 2,
 			"block": {
 				"type": "item",
@@ -44,83 +44,11 @@
 			}
 		},
 		{
-			"x": 13,
+			"x": 16,
 			"y": 2,
 			"block": {
 				"type": "item",
 				"name": "star",
-				"dir": 0
-			}
-		},
-		{
-			"x": 3,
-			"y": 1,
-			"block": {
-				"type": "spike",
-				"name": "s_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 0,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 1,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 2,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 3,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 4,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 5,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
-			"x": 6,
-			"y": 0,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
 				"dir": 0
 			}
 		},
@@ -146,8 +74,8 @@
 			"x": 9,
 			"y": 0,
 			"block": {
-				"type": "funcblock",
-				"name": "fb_jump",
+				"type": "block",
+				"name": "b_normal",
 				"dir": 0
 			}
 		},
@@ -197,8 +125,125 @@
 			}
 		},
 		{
+			"x": 14,
+			"y": 1,
+			"block": {
+				"type": "spike",
+				"name": "s_normal",
+				"dir": 0
+			}
+		},
+		{
 			"x": 15,
 			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 16,
+			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 17,
+			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 1,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 2,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 3,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 6,
+			"y": 4,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 18,
+			"y": 0,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 18,
+			"y": 1,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 18,
+			"y": 2,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 18,
+			"y": 3,
+			"block": {
+				"type": "block",
+				"name": "b_normal",
+				"dir": 0
+			}
+		},
+		{
+			"x": 18,
+			"y": 4,
 			"block": {
 				"type": "block",
 				"name": "b_normal",

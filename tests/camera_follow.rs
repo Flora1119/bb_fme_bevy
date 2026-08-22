@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
-const CAMERA_MAP: &str = include_str!("../assets/maps/phase5_camera_follow_sandbox.json");
+const CAMERA_MAP: &str = include_str!("../assets/maps/phase4_camera_follow_sandbox.json");
 
 fn load_validated_map() -> ValidatedMap {
     let config: BlockAssetConfig =

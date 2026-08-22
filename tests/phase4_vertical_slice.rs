@@ -16,7 +16,7 @@ use std::time::Duration;
 
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
-const UNITY_PLAYTHROUGH_MAP: &str = include_str!("../assets/maps/unity_phase4_playthrough.json");
+const UNITY_PLAYTHROUGH_MAP: &str = include_str!("../assets/maps/phase4_playthrough.json");
 
 fn load_validated_map() -> ValidatedMap {
     let config: BlockAssetConfig =

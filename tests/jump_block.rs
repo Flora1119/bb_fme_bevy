@@ -16,7 +16,7 @@ use std::time::Duration;
 
 const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
-const JUMP_MAP: &str = include_str!("../assets/maps/phase8_jump_boundary_sandbox.json");
+const JUMP_MAP: &str = include_str!("../assets/maps/phase4_jump_boundary_sandbox.json");
 
 fn load_validated_map() -> ValidatedMap {
     let config: BlockAssetConfig =

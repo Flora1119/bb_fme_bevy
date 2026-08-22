@@ -1,5 +1,5 @@
 {
-	"map_name": "phase8_jump_boundary_sandbox",
+	"map_name": "phase4_playthrough",
 	"author": "Development",
 	"map_settings": {
 		"time_limit": 60.0,
@@ -35,7 +35,7 @@
 	},
 	"blocks": [
 		{
-			"x": 4,
+			"x": 6,
 			"y": 2,
 			"block": {
 				"type": "item",
@@ -44,11 +44,20 @@
 			}
 		},
 		{
-			"x": 1,
-			"y": 5,
+			"x": 13,
+			"y": 2,
 			"block": {
 				"type": "item",
 				"name": "star",
+				"dir": 0
+			}
+		},
+		{
+			"x": 3,
+			"y": 1,
+			"block": {
+				"type": "spike",
+				"name": "s_normal",
 				"dir": 0
 			}
 		},
@@ -101,8 +110,8 @@
 			"x": 5,
 			"y": 0,
 			"block": {
-				"type": "funcblock",
-				"name": "fb_jump",
+				"type": "block",
+				"name": "b_normal",
 				"dir": 0
 			}
 		},
@@ -110,8 +119,8 @@
 			"x": 6,
 			"y": 0,
 			"block": {
-				"type": "funcblock",
-				"name": "fb_jump",
+				"type": "block",
+				"name": "b_normal",
 				"dir": 0
 			}
 		},
@@ -119,8 +128,8 @@
 			"x": 7,
 			"y": 0,
 			"block": {
-				"type": "funcblock",
-				"name": "fb_jump",
+				"type": "block",
+				"name": "b_normal",
 				"dir": 0
 			}
 		},
@@ -137,8 +146,8 @@
 			"x": 9,
 			"y": 0,
 			"block": {
-				"type": "block",
-				"name": "b_normal",
+				"type": "funcblock",
+				"name": "fb_jump",
 				"dir": 0
 			}
 		},
@@ -170,15 +179,6 @@
 			}
 		},
 		{
-			"x": 6,
-			"y": 4,
-			"block": {
-				"type": "block",
-				"name": "b_normal",
-				"dir": 0
-			}
-		},
-		{
 			"x": 13,
 			"y": 0,
 			"block": {
@@ -197,8 +197,8 @@
 			}
 		},
 		{
-			"x": 12,
-			"y": 1,
+			"x": 15,
+			"y": 0,
 			"block": {
 				"type": "block",
 				"name": "b_normal",

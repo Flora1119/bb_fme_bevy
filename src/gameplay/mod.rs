@@ -12,6 +12,7 @@ mod play_session;
 mod player_control;
 mod spike_death;
 mod star_collection;
+mod static_block;
 
 pub use block_role::*;
 pub use block_visual::*;
@@ -27,3 +28,4 @@ pub use play_session::*;
 pub use player_control::*;
 pub use spike_death::*;
 pub use star_collection::*;
+pub use static_block::*;
