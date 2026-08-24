@@ -5,7 +5,7 @@ use bb_fme_bevy::{
     gameplay::{
         BlockPhysicsBody, ConsumedFunctionBlock, GameplayPhysicsPlugin, GridIndex, MapSpawnPlugin,
         OneShotFunctionBlock, PHYSICS_HZ, PLAYER_GRAVITY_SCALE, PlaySessionPlugin, PlayerBall,
-        PlayerControlPlugin, SolidBlock, SpawnValidatedMap, StraightBlock, StraightBrake,
+        PlayerControlPlugin, SolidBlock, SpawnValidatedMap, StraightBlock, StraightMomentum,
         StraightMovement,
     },
     map::MapDocument,
@@ -322,62 +322,102 @@ fn cardinal_straight_launch_repositions_the_player_and_disables_gravity() {
         PLAYER_GRAVITY_SCALE,
     );
 
-    // 직진은 즉시 해제되지만,
-    // 속도 자체가 순간적으로 0이 되면
-    // 안 됩니다.
-    assert!(app.world().get::<StraightBrake>(player,).is_some());
-
-    let speed_after_press = app.world().get::<LinearVelocity>(player).unwrap().0.x;
-
-    assert!(
-        speed_after_press > 0.0,
-        "straight cancel stopped \
-     the player instantly"
+    let momentum = app.world().get::<StraightMomentum>(player).expect(
+        "straight cancel must preserve \
+         residual momentum",
     );
 
+    let momentum_x = momentum.current_velocity().x;
+
+    let actual_x = app.world().get::<LinearVelocity>(player).unwrap().0.x;
+
+    // Momentum은 아직 오른쪽으로 남아 있어야 합니다.
+    assert!(momentum_x > 0.0, "straight momentum disappeared instantly");
+
+    // 하지만 ← 입력도 같은 틱부터 작동해야 하므로
+    // 실제 X속도는 Momentum 단독 속도보다
+    // 작아야 합니다.
     assert!(
-        speed_after_press < StraightBlock::STANDARD_SPEED,
-        "straight brake did not \
-     reduce forward speed"
+        actual_x < momentum_x,
+        "player input did not affect \
+     movement immediately"
     );
 
-    app.world_mut().write_message(KeyboardInput {
-        key_code: KeyCode::ArrowLeft,
-        logical_key: Key::ArrowLeft,
-        state: ButtonState::Released,
-        text: None,
-        repeat: false,
-        window: test_window,
-    });
+    // 동시에 순간정지가 되어서도 안 됩니다.
+    assert!(actual_x > 0.0, "residual momentum vanished too quickly");
 
-    let mut brake_finished = false;
+    // // 직진은 즉시 해제되지만,
+    // // 속도 자체가 순간적으로 0이 되면
+    // // 안 됩니다.
+    // assert!(app.world().get::<StraightMomentum>(player,).is_some());
+
+    // let speed_after_press = app.world().get::<LinearVelocity>(player).unwrap().0.x;
+
+    // assert!(
+    //     speed_after_press > 0.0,
+    //     "straight cancel stopped \
+    //  the player instantly"
+    // );
+
+    // assert!(
+    //     speed_after_press < StraightBlock::STANDARD_SPEED,
+    //     "straight brake did not \
+    //  reduce forward speed"
+    // );
+
+    // app.world_mut().write_message(KeyboardInput {
+    //     key_code: KeyCode::ArrowLeft,
+    //     logical_key: Key::ArrowLeft,
+    //     state: ButtonState::Released,
+    //     text: None,
+    //     repeat: false,
+    //     window: test_window,
+    // });
+
+    // let mut brake_finished = false;
+
+    // for _ in 0..20 {
+    //     app.update();
+
+    //     if app.world().get::<StraightMomentum>(player).is_none() {
+    //         brake_finished = true;
+    //         break;
+    //     }
+    // }
+
+    // assert!(
+    //     brake_finished,
+    //     "straight brake did not \
+    //  finish quickly enough"
+    // );
+
+    let mut momentum_finished = false;
 
     for _ in 0..20 {
         app.update();
 
-        if app.world().get::<StraightBrake>(player).is_none() {
-            brake_finished = true;
+        if app.world().get::<StraightMomentum>(player).is_none() {
+            momentum_finished = true;
             break;
         }
     }
 
     assert!(
-        brake_finished,
-        "straight brake did not \
-     finish quickly enough"
+        momentum_finished,
+        "straight momentum did not \
+     finish within its time limit"
     );
 
-    let final_velocity = app.world().get::<LinearVelocity>(player).unwrap().0;
+    let final_velocity_x = app.world().get::<LinearVelocity>(player).unwrap().0.x;
 
-    // 오른쪽으로 가던 직진 속도는
-    // 거의 완전히 제거돼야 합니다.
-    // Y는 중력 때문에 내려갈 수 있으므로
-    // X만 검사합니다.
+    // ← 입력은 Momentum이 사라질 때까지
+    // 계속 허용됐으므로 이미 왼쪽으로
+    // 움직이고 있어야 합니다.
     assert!(
-        final_velocity.x.abs() <= 0.11,
-        "straight brake left too much \
-     forward speed: {}",
-        final_velocity.x
+        final_velocity_x < 0.0,
+        "player control was blocked \
+     while momentum was decaying: \
+     {final_velocity_x}"
     );
 }
 
@@ -463,4 +503,65 @@ fn hitting_a_wall_stops_straight_movement_and_restores_gravity() {
         "wall collision should bounce \
          the player away from the wall"
     );
+}
+
+#[test]
+fn same_direction_input_does_not_extend_straight_momentum_speed() {
+    let mut app = app_with_straight_blocks();
+
+    let player = activate_straight_block(&mut app, 5.0);
+
+    // 직진 시작 직후 속도 = 12.
+    assert_close(
+        app.world().get::<LinearVelocity>(player).unwrap().0.x,
+        StraightBlock::STANDARD_SPEED,
+    );
+
+    // 실제 오른쪽 새 입력을 발생시켜
+    // StraightMovement → StraightMomentum.
+    let test_window = app.world_mut().spawn_empty().id();
+
+    app.world_mut().write_message(KeyboardInput {
+        key_code: KeyCode::ArrowRight,
+        logical_key: Key::ArrowRight,
+        state: ButtonState::Pressed,
+        text: None,
+        repeat: false,
+        window: test_window,
+    });
+
+    app.update();
+
+    assert!(app.world().get::<StraightMovement>(player,).is_none());
+
+    assert!(app.world().get::<StraightMomentum>(player,).is_some());
+
+    let first_speed = app.world().get::<LinearVelocity>(player).unwrap().0.x;
+
+    // 같은 방향 입력이 Momentum의 감소를
+    // 상쇄해서는 안 됩니다.
+    assert!(
+        first_speed < StraightBlock::STANDARD_SPEED,
+        "same-direction input prolonged \
+         straight speed: {first_speed}"
+    );
+
+    let mut previous_speed = first_speed;
+
+    // Momentum이 일반 최고속도보다
+    // 높은 동안 실제 속도는 계속 감소해야 합니다.
+    for _ in 0..5 {
+        app.update();
+
+        let speed = app.world().get::<LinearVelocity>(player).unwrap().0.x;
+
+        assert!(
+            speed <= previous_speed + 0.001,
+            "same-direction input increased \
+             residual straight speed: \
+             {previous_speed} -> {speed}"
+        );
+
+        previous_speed = speed;
+    }
 }

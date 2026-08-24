@@ -1,5 +1,5 @@
 use super::{
-    MapSpawnSet, PLAYER_GRAVITY_SCALE, PlaySession, PlaySessionSet, PlayerBall, StraightBrake,
+    MapSpawnSet, PLAYER_GRAVITY_SCALE, PlaySession, PlaySessionSet, PlayerBall, StraightMomentum,
     StraightMovement,
 };
 use avian2d::prelude::*;
@@ -10,8 +10,7 @@ pub const PLAYER_HORIZONTAL_ACCELERATION: f32 = 30.0;
 pub const PLAYER_HORIZONTAL_DECELERATION: f32 = 8.0;
 pub const PLAYER_HORIZONTAL_STOP_THRESHOLD: f32 = 0.5;
 
-pub const STRAIGHT_BRAKE_DECELERATION: f32 = 45.0;
-pub const STRAIGHT_BRAKE_STOP_THRESHOLD: f32 = 0.1;
+pub const STRAIGHT_MOMENTUM_DURATION: f32 = 0.30;
 
 pub struct PlayerControlPlugin;
 
@@ -26,7 +25,7 @@ impl Plugin for PlayerControlPlugin {
             )
             .add_systems(
                 PhysicsSchedule,
-                (apply_straight_brake, apply_horizontal_control)
+                (apply_straight_momentum_decay, apply_horizontal_control)
                     .chain()
                     .after(PlaySessionSet::AdvanceTime)
                     .before(PhysicsStepSystems::BroadPhase),
@@ -98,12 +97,12 @@ fn apply_horizontal_control(
     session: Res<PlaySession>,
     time: Res<Time<Physics>>,
     mut players: Query<
-        (&PlayerInputIntent, &mut LinearVelocity),
         (
-            With<PlayerBall>,
-            Without<StraightMovement>,
-            Without<StraightBrake>,
+            &PlayerInputIntent,
+            &mut LinearVelocity,
+            Option<&StraightMomentum>,
         ),
+        (With<PlayerBall>, Without<StraightMovement>),
     >,
 ) {
     if !session.is_playing() {
@@ -112,8 +111,46 @@ fn apply_horizontal_control(
 
     let delta_seconds = time.delta_secs();
 
-    for (intent, mut velocity) in &mut players {
-        velocity.0.x = next_horizontal_velocity(velocity.0.x, intent.horizontal(), delta_seconds);
+    for (intent, mut velocity, momentum) in &mut players {
+        let horizontal = intent.horizontal();
+
+        let momentum_x = momentum.map_or(0.0, |momentum| momentum.current_velocity().x);
+
+        // 실제 속도에서 잔여 직진 관성을
+        // 제외한 순수 플레이어 조작 속도.
+        let control_velocity_x = velocity.0.x - momentum_x;
+
+        let same_direction =
+            horizontal != 0.0 && momentum_x != 0.0 && horizontal.signum() == momentum_x.signum();
+
+        let next_control_velocity_x = if same_direction {
+            // 같은 방향 입력일 때는
+            // Momentum + Control이 겹쳐
+            // 과도하게 밀려나지 않도록 합니다.
+            //
+            // Momentum 자체가 이미 일반 최고속도보다
+            // 빠르면 추가 추진력은 0.
+            //
+            // Momentum이 5 아래로 떨어지면
+            // 부족한 부분만 일반 조작이 이어받습니다.
+            let target_control = if momentum_x.abs() >= PLAYER_MAX_HORIZONTAL_SPEED {
+                0.0
+            } else {
+                horizontal * PLAYER_MAX_HORIZONTAL_SPEED - momentum_x
+            };
+
+            move_towards(
+                control_velocity_x,
+                target_control,
+                PLAYER_HORIZONTAL_ACCELERATION * delta_seconds,
+            )
+        } else {
+            // 반대 방향이나 Momentum이 없는 경우는
+            // 기존 조작을 그대로 사용합니다.
+            next_horizontal_velocity(control_velocity_x, horizontal, delta_seconds)
+        };
+
+        velocity.0.x += next_control_velocity_x - control_velocity_x;
     }
 }
 
@@ -201,54 +238,41 @@ fn cancel_straight_movement_on_press(
     }
 
     for (entity, straight, mut gravity_scale) in &mut players {
-        let brake_direction = straight.direction();
+        let momentum = StraightMomentum::new(
+            straight.direction(),
+            straight.speed(),
+            STRAIGHT_MOMENTUM_DURATION,
+        );
 
-        // 직진 해제 즉시 중력은 복구합니다.
+        // 중력은 즉시 복귀.
         *gravity_scale = GravityScale(PLAYER_GRAVITY_SCALE);
 
+        // 강제 직진은 종료하지만
+        // 직진 속도 자체는 관성으로 남깁니다.
         commands
             .entity(entity)
             .remove::<StraightMovement>()
-            .insert(StraightBrake::new(brake_direction));
+            .insert(momentum);
     }
 }
 
-fn apply_straight_brake(
+fn apply_straight_momentum_decay(
     mut commands: Commands,
-    session: Res<PlaySession>,
     time: Res<Time<Physics>>,
-    mut players: Query<(Entity, &StraightBrake, &mut LinearVelocity), With<PlayerBall>>,
+    mut players: Query<(Entity, &mut StraightMomentum, &mut LinearVelocity), With<PlayerBall>>,
 ) {
-    if !session.is_playing() {
-        return;
-    }
+    let delta_seconds = time.delta_secs();
 
-    let max_delta = STRAIGHT_BRAKE_DECELERATION * time.delta_secs();
+    for (entity, mut momentum, mut velocity) in &mut players {
+        let velocity_delta = momentum.advance(delta_seconds);
 
-    for (entity, brake, mut velocity) in &mut players {
-        let direction = brake.direction();
+        // 플레이어 입력이나 중력으로 생긴
+        // 속도는 그대로 두고,
+        // 직진 관성의 변화량만 반영합니다.
+        velocity.0 += velocity_delta;
 
-        // 현재 속도 중에서
-        // 원래 직진 방향으로 향하는
-        // 성분만 뽑습니다.
-        let forward_speed = velocity.0.dot(direction);
-
-        // 이미 직진 방향 속도가
-        // 거의 없거나 충돌 등으로
-        // 반대 방향이 되었다면
-        // 브레이크는 끝입니다.
-        if forward_speed <= STRAIGHT_BRAKE_STOP_THRESHOLD {
-            commands.entity(entity).remove::<StraightBrake>();
-
-            continue;
-        }
-
-        let next_speed = (forward_speed - max_delta).max(0.0);
-
-        velocity.0 += direction * (next_speed - forward_speed);
-
-        if next_speed <= STRAIGHT_BRAKE_STOP_THRESHOLD {
-            commands.entity(entity).remove::<StraightBrake>();
+        if momentum.is_finished() {
+            commands.entity(entity).remove::<StraightMomentum>();
         }
     }
 }

@@ -144,18 +144,45 @@ impl StraightMovement {
 }
 
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
-pub struct StraightBrake {
-    direction: Vec2,
+pub struct StraightMomentum {
+    initial_velocity: Vec2,
+    current_velocity: Vec2,
+    elapsed_seconds: f32,
+    duration_seconds: f32,
 }
 
-impl StraightBrake {
-    pub fn new(direction: Vec2) -> Self {
+impl StraightMomentum {
+    pub fn new(direction: Vec2, speed: f32, duration_seconds: f32) -> Self {
+        let initial_velocity = direction.normalize_or_zero() * speed;
+
         Self {
-            direction: direction.normalize_or_zero(),
+            initial_velocity,
+            current_velocity: initial_velocity,
+            elapsed_seconds: 0.0,
+            duration_seconds: duration_seconds.max(f32::EPSILON),
         }
     }
 
-    pub const fn direction(self) -> Vec2 {
-        self.direction
+    pub const fn current_velocity(&self) -> Vec2 {
+        self.current_velocity
+    }
+
+    pub fn advance(&mut self, delta_seconds: f32) -> Vec2 {
+        let previous_velocity = self.current_velocity;
+
+        self.elapsed_seconds =
+            (self.elapsed_seconds + delta_seconds.max(0.0)).min(self.duration_seconds);
+
+        let remaining_ratio = 1.0 - self.elapsed_seconds / self.duration_seconds;
+
+        self.current_velocity = self.initial_velocity * remaining_ratio.max(0.0);
+
+        // 실제 LinearVelocity에서
+        // 이번 틱에 얼마나 변화시킬지 반환
+        self.current_velocity - previous_velocity
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.elapsed_seconds >= self.duration_seconds
     }
 }

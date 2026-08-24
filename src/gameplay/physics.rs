@@ -1,7 +1,7 @@
 use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, ConsumedFunctionBlock, CurrentGridPosition, DeadlySpike,
     JumpBlock, MapSpawnSet, OneShotFunctionBlock, PlayInteractionSet, PlaySession, PlayerBall,
-    SolidBlock, StraightBlock, StraightMovement, solid_collider_geometry_for,
+    SolidBlock, StraightBlock, StraightMomentum, StraightMovement, solid_collider_geometry_for,
     spike_collider_profile_for,
 };
 use avian2d::prelude::*;
@@ -459,6 +459,7 @@ fn apply_solid_contact_response(
             &mut Position,
             &mut Transform,
             Option<&StraightMovement>,
+            Option<&StraightMomentum>,
         ),
         With<PlayerBall>,
     >,
@@ -477,8 +478,14 @@ fn apply_solid_contact_response(
     let contacts_by_player = std::mem::take(&mut pending.0);
 
     for (player, started_contacts) in contacts_by_player {
-        let Ok((mut velocity, mut gravity_scale, mut position, mut transform, straight_movement)) =
-            players.get_mut(player)
+        let Ok((
+            mut velocity,
+            mut gravity_scale,
+            mut position,
+            mut transform,
+            straight_movement,
+            straight_momentum,
+        )) = players.get_mut(player)
         else {
             continue;
         };
@@ -502,6 +509,10 @@ fn apply_solid_contact_response(
             *gravity_scale = GravityScale(PLAYER_GRAVITY_SCALE);
 
             commands.entity(player).remove::<StraightMovement>();
+        }
+
+        if straight_momentum.is_some() && blocking_contact {
+            commands.entity(player).remove::<StraightMomentum>();
         }
 
         if started_contacts.corner_glide {

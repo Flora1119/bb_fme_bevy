@@ -82,7 +82,7 @@
 		},
 
 		{
-			"x": 10,
+			"x": 6,
 			"y": 2,
 			"block": {
 				"type": "funcblock",
@@ -91,8 +91,8 @@
 			}
 		},
 		{
-			"x": 6,
-			"y": 1,
+			"x": 10,
+			"y": 2,
 			"block": {
 				"type": "funcblock",
 				"name": "fb_st_hv",
