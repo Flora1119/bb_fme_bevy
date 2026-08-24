@@ -1,4 +1,7 @@
-use super::{MapSpawnSet, PlaySession, PlaySessionSet, PlayerBall};
+use super::{
+    MapSpawnSet, PLAYER_GRAVITY_SCALE, PlaySession, PlaySessionSet, PlayerBall, StraightBrake,
+    StraightMovement,
+};
 use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
 
@@ -7,15 +10,24 @@ pub const PLAYER_HORIZONTAL_ACCELERATION: f32 = 30.0;
 pub const PLAYER_HORIZONTAL_DECELERATION: f32 = 8.0;
 pub const PLAYER_HORIZONTAL_STOP_THRESHOLD: f32 = 0.5;
 
+pub const STRAIGHT_BRAKE_DECELERATION: f32 = 45.0;
+pub const STRAIGHT_BRAKE_STOP_THRESHOLD: f32 = 0.1;
+
 pub struct PlayerControlPlugin;
 
 impl Plugin for PlayerControlPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, attach_player_input_intent.after(MapSpawnSet))
-            .add_systems(PreUpdate, capture_keyboard_input.after(InputSystems))
+            .add_systems(
+                PreUpdate,
+                (capture_keyboard_input, cancel_straight_movement_on_press)
+                    .chain()
+                    .after(InputSystems),
+            )
             .add_systems(
                 PhysicsSchedule,
-                apply_horizontal_control
+                (apply_straight_brake, apply_horizontal_control)
+                    .chain()
                     .after(PlaySessionSet::AdvanceTime)
                     .before(PhysicsStepSystems::BroadPhase),
             );
@@ -85,7 +97,14 @@ fn capture_keyboard_input(
 fn apply_horizontal_control(
     session: Res<PlaySession>,
     time: Res<Time<Physics>>,
-    mut players: Query<(&PlayerInputIntent, &mut LinearVelocity), With<PlayerBall>>,
+    mut players: Query<
+        (&PlayerInputIntent, &mut LinearVelocity),
+        (
+            With<PlayerBall>,
+            Without<StraightMovement>,
+            Without<StraightBrake>,
+        ),
+    >,
 ) {
     if !session.is_playing() {
         return;
@@ -159,6 +178,78 @@ fn move_towards(current: f32, target: f32, max_delta: f32) -> f32 {
         target
     } else {
         current + delta.signum() * max_delta
+    }
+}
+
+fn cancel_straight_movement_on_press(
+    mut commands: Commands,
+    session: Res<PlaySession>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut players: Query<(Entity, &StraightMovement, &mut GravityScale), With<PlayerBall>>,
+) {
+    if !session.is_playing() {
+        return;
+    }
+
+    let pressed = keyboard.just_pressed(KeyCode::ArrowLeft)
+        || keyboard.just_pressed(KeyCode::KeyA)
+        || keyboard.just_pressed(KeyCode::ArrowRight)
+        || keyboard.just_pressed(KeyCode::KeyD);
+
+    if !pressed {
+        return;
+    }
+
+    for (entity, straight, mut gravity_scale) in &mut players {
+        let brake_direction = straight.direction();
+
+        // 직진 해제 즉시 중력은 복구합니다.
+        *gravity_scale = GravityScale(PLAYER_GRAVITY_SCALE);
+
+        commands
+            .entity(entity)
+            .remove::<StraightMovement>()
+            .insert(StraightBrake::new(brake_direction));
+    }
+}
+
+fn apply_straight_brake(
+    mut commands: Commands,
+    session: Res<PlaySession>,
+    time: Res<Time<Physics>>,
+    mut players: Query<(Entity, &StraightBrake, &mut LinearVelocity), With<PlayerBall>>,
+) {
+    if !session.is_playing() {
+        return;
+    }
+
+    let max_delta = STRAIGHT_BRAKE_DECELERATION * time.delta_secs();
+
+    for (entity, brake, mut velocity) in &mut players {
+        let direction = brake.direction();
+
+        // 현재 속도 중에서
+        // 원래 직진 방향으로 향하는
+        // 성분만 뽑습니다.
+        let forward_speed = velocity.0.dot(direction);
+
+        // 이미 직진 방향 속도가
+        // 거의 없거나 충돌 등으로
+        // 반대 방향이 되었다면
+        // 브레이크는 끝입니다.
+        if forward_speed <= STRAIGHT_BRAKE_STOP_THRESHOLD {
+            commands.entity(entity).remove::<StraightBrake>();
+
+            continue;
+        }
+
+        let next_speed = (forward_speed - max_delta).max(0.0);
+
+        velocity.0 += direction * (next_speed - forward_speed);
+
+        if next_speed <= STRAIGHT_BRAKE_STOP_THRESHOLD {
+            commands.entity(entity).remove::<StraightBrake>();
+        }
     }
 }
 

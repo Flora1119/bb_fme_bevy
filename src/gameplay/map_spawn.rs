@@ -1,6 +1,6 @@
 use super::{
-    CollectibleStar, DeadlySpike, JumpBlock, PlayerBall, SolidBlock, TransparentStar,
-    spike_has_solid_collider,
+    CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall, SolidBlock,
+    StraightBlock, TransparentStar, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -171,6 +171,39 @@ fn spawn_requested_map(
 
             "fb_jump" => {
                 entity_commands.insert((SolidBlock, JumpBlock::standard()));
+            }
+
+            "fb_ds_jump" => {
+                entity_commands.insert((SolidBlock, JumpBlock::high(), OneShotFunctionBlock));
+            }
+            "fb_st_hv" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    StraightBlock::standard_cardinal(block.direction),
+                ));
+            }
+
+            "fb_st_dg" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    StraightBlock::standard_diagonal(block.direction),
+                ));
+            }
+
+            "fb_ds_st_hv" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    StraightBlock::high_cardinal(block.direction),
+                    OneShotFunctionBlock,
+                ));
+            }
+
+            "fb_ds_st_dg" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    StraightBlock::high_diagonal(block.direction),
+                    OneShotFunctionBlock,
+                ));
             }
 
             _ => {}

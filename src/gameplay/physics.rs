@@ -1,6 +1,8 @@
 use super::{
-    BLOCK_WORLD_SIZE, BlockIdentity, DeadlySpike, JumpBlock, MapSpawnSet, PlayInteractionSet,
-    PlaySession, PlayerBall, SolidBlock, solid_collider_geometry_for, spike_collider_profile_for,
+    BLOCK_WORLD_SIZE, BlockIdentity, ConsumedFunctionBlock, CurrentGridPosition, DeadlySpike,
+    JumpBlock, MapSpawnSet, OneShotFunctionBlock, PlayInteractionSet, PlaySession, PlayerBall,
+    SolidBlock, StraightBlock, StraightMovement, solid_collider_geometry_for,
+    spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -101,6 +103,20 @@ pub struct SolidColliderChild;
 struct PendingSolidContactResponses(HashMap<Entity, StartedSolidContacts>);
 
 #[derive(Debug, Clone, Copy)]
+struct JumpContactResponse {
+    source: Entity,
+    speed: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct StraightContactResponse {
+    source: Entity,
+    target_position: Vec2,
+    direction: Vec2,
+    speed: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
 struct StartedSolidContacts {
     floor: bool,
     corner_glide: bool,
@@ -115,7 +131,8 @@ struct StartedSolidContacts {
 
     // 바닥으로 판정된 접촉 중 JumpBlock이 있었다면
     // 적용할 점프 속도입니다.
-    jump_speed: Option<f32>,
+    jump: Option<JumpContactResponse>,
+    straight: Option<StraightContactResponse>,
 }
 
 impl StartedSolidContacts {
@@ -126,7 +143,8 @@ impl StartedSolidContacts {
             ceiling: false,
             wall_direction: Vec2::ZERO,
             incoming_velocity,
-            jump_speed: None,
+            jump: None,
+            straight: None,
         }
     }
 }
@@ -242,9 +260,10 @@ fn collect_solid_contacts(
     collisions: Collisions,
     gravity: Res<Gravity>,
     players: Query<&LinearVelocity, With<PlayerBall>>,
-    solids: Query<(), With<SolidBlock>>,
+    solids: Query<(), (With<SolidBlock>, Without<ConsumedFunctionBlock>)>,
     spike_sensors: Query<(), With<SpikeSensorCollider>>,
     jump_blocks: Query<&JumpBlock>,
+    straight_blocks: Query<(&StraightBlock, &CurrentGridPosition)>,
     mut pending: ResMut<PendingSolidContactResponses>,
 ) {
     // 이번 물리 틱의 현재 접촉 상태를 새로 수집합니다.
@@ -338,14 +357,46 @@ fn collect_solid_contacts(
             if contact_floor_alignment >= floor_threshold {
                 started_contacts.floor = true;
 
-                if let Ok(jump_block) = jump_blocks.get(solid) {
-                    let launch_speed = jump_block.launch_speed();
+                if let Ok((straight_block, grid_position)) = straight_blocks.get(solid) {
+                    let grid = grid_position.0;
 
-                    started_contacts.jump_speed = Some(
-                        started_contacts
-                            .jump_speed
-                            .map_or(launch_speed, |current| current.max(launch_speed)),
+                    let block_center = Vec2::new(
+                        grid.x as f32 * BLOCK_WORLD_SIZE,
+                        grid.y as f32 * BLOCK_WORLD_SIZE,
                     );
+
+                    let candidate = StraightContactResponse {
+                        source: solid,
+                        target_position: block_center
+                            + straight_block.exit_offset() * BLOCK_WORLD_SIZE,
+                        direction: straight_block.launch_direction(),
+                        speed: straight_block.speed(),
+                    };
+
+                    let should_replace = match started_contacts.straight {
+                        Some(current) => candidate.speed > current.speed,
+                        None => true,
+                    };
+
+                    if should_replace {
+                        started_contacts.straight = Some(candidate);
+                    }
+                }
+
+                if let Ok(jump_block) = jump_blocks.get(solid) {
+                    let candidate = JumpContactResponse {
+                        source: solid,
+                        speed: jump_block.launch_speed(),
+                    };
+
+                    let should_replace = match started_contacts.jump {
+                        Some(current) => candidate.speed > current.speed,
+                        None => true,
+                    };
+
+                    if should_replace {
+                        started_contacts.jump = Some(candidate);
+                    }
                 }
 
                 continue;
@@ -396,10 +447,21 @@ fn collect_solid_contacts(
 }
 
 fn apply_solid_contact_response(
+    mut commands: Commands,
     gravity: Res<Gravity>,
     session: Option<Res<PlaySession>>,
+    one_shot_blocks: Query<(), With<OneShotFunctionBlock>>,
     mut pending: ResMut<PendingSolidContactResponses>,
-    mut velocities: Query<&mut LinearVelocity, With<PlayerBall>>,
+    mut players: Query<
+        (
+            &mut LinearVelocity,
+            &mut GravityScale,
+            &mut Position,
+            &mut Transform,
+            Option<&StraightMovement>,
+        ),
+        With<PlayerBall>,
+    >,
 ) {
     let bounce_direction = (-gravity.0).normalize_or_zero();
 
@@ -412,11 +474,12 @@ fn apply_solid_contact_response(
         .as_ref()
         .map_or(true, |session| session.is_playing());
 
-    // 이번 물리 틱의 결과를 꺼내고 Resource는 빈 상태로 만듭니다.
     let contacts_by_player = std::mem::take(&mut pending.0);
 
     for (player, started_contacts) in contacts_by_player {
-        let Ok(mut velocity) = velocities.get_mut(player) else {
+        let Ok((mut velocity, mut gravity_scale, mut position, mut transform, straight_movement)) =
+            players.get_mut(player)
+        else {
             continue;
         };
 
@@ -424,21 +487,76 @@ fn apply_solid_contact_response(
 
         let incoming_bounce_speed = started_contacts.incoming_velocity.dot(bounce_direction);
 
+        // Unity에서는 직진 중
+        // 바닥/천장/벽에 부딪히면
+        // StraightMovement가 종료되고
+        // 중력이 다시 켜집니다.
+        //
+        // corner_glide는 실제 blocking
+        // collision으로 취급하지 않습니다.
+        let blocking_contact = started_contacts.floor
+            || started_contacts.ceiling
+            || started_contacts.wall_direction != Vec2::ZERO;
+
+        if straight_movement.is_some() && blocking_contact {
+            *gravity_scale = GravityScale(PLAYER_GRAVITY_SCALE);
+
+            commands.entity(player).remove::<StraightMovement>();
+        }
+
         if started_contacts.corner_glide {
             continue;
         }
+
         // 1. 바닥 접촉
         if started_contacts.floor {
-            // 이미 바닥에서 멀어지는 중이라면
-            // 같은 지속 접촉에서 바운스를 다시 발동하지 않습니다.
             if incoming_bounce_speed > FLOOR_APPROACH_EPSILON {
                 continue;
             }
 
-            // JumpBlock
             if gameplay_is_playing {
-                if let Some(jump_speed) = started_contacts.jump_speed {
-                    velocity.0 += bounce_direction * (jump_speed - current_bounce_speed);
+                // StraightBlock
+                //
+                // JumpBlock보다 먼저 처리하여
+                // 직진 블록이 정확한
+                // 위치와 속도를 최종 결정합니다.
+                if let Some(straight) = started_contacts.straight {
+                    position.0 = straight.target_position;
+
+                    transform.translation.x = straight.target_position.x;
+
+                    transform.translation.y = straight.target_position.y;
+
+                    velocity.0 = straight.direction * straight.speed;
+
+                    *gravity_scale = GravityScale(0.0);
+
+                    commands
+                        .entity(player)
+                        .insert(StraightMovement::new(straight.direction, straight.speed));
+
+                    if one_shot_blocks.contains(straight.source) {
+                        commands.entity(straight.source).insert((
+                            ConsumedFunctionBlock,
+                            Visibility::Hidden,
+                            ColliderDisabled,
+                        ));
+                    }
+
+                    continue;
+                }
+
+                // JumpBlock
+                if let Some(jump) = started_contacts.jump {
+                    velocity.0 += bounce_direction * (jump.speed - current_bounce_speed);
+
+                    if one_shot_blocks.contains(jump.source) {
+                        commands.entity(jump.source).insert((
+                            ConsumedFunctionBlock,
+                            Visibility::Hidden,
+                            ColliderDisabled,
+                        ));
+                    }
 
                     continue;
                 }
