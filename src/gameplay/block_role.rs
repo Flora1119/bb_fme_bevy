@@ -219,7 +219,7 @@ pub struct ClockBlock {
 impl ClockBlock {
     pub const ROTATE_INTERVAL_SECONDS: f32 = 0.3;
     pub const LAUNCH_SPEED: f32 = 15.0;
-    pub const LAUNCH_OFFSET_BLOCKS: f32 = 1.0;
+    pub const LAUNCH_OFFSET_BLOCKS: f32 = 0.5;
 
     pub const fn dir4() -> Self {
         Self {
@@ -252,6 +252,8 @@ impl ClockBlock {
     }
 
     pub fn launch_direction(self, direction_index: u8) -> Vec2 {
+        const D: f32 = std::f32::consts::FRAC_1_SQRT_2;
+
         match self.mode {
             ClockDirectionMode::Dir4 => match direction_index % 4 {
                 0 => Vec2::new(0.0, 1.0),
@@ -263,13 +265,13 @@ impl ClockBlock {
 
             ClockDirectionMode::Dir8 => match direction_index % 8 {
                 0 => Vec2::new(0.0, 1.0),
-                1 => Vec2::new(1.0, 1.0),
+                1 => Vec2::new(D, D),
                 2 => Vec2::new(1.0, 0.0),
-                3 => Vec2::new(1.0, -1.0),
+                3 => Vec2::new(D, -D),
                 4 => Vec2::new(0.0, -1.0),
-                5 => Vec2::new(-1.0, -1.0),
+                5 => Vec2::new(-D, -D),
                 6 => Vec2::new(-1.0, 0.0),
-                7 => Vec2::new(-1.0, 1.0),
+                7 => Vec2::new(-D, D),
                 _ => unreachable!(),
             },
         }
@@ -321,6 +323,21 @@ impl ClockSelection {
         }
 
         rotations
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClockLaunchGuard {
+    source: Entity,
+}
+
+impl ClockLaunchGuard {
+    pub const fn new(source: Entity) -> Self {
+        Self { source }
+    }
+
+    pub const fn source(self) -> Entity {
+        self.source
     }
 }
 
@@ -424,17 +441,18 @@ mod tests {
 
     #[test]
     fn dir8_clock_launch_direction_follows_all_eight_arrow_positions() {
+        const D: f32 = std::f32::consts::FRAC_1_SQRT_2;
         let clock = ClockBlock::dir8();
 
         let expected = [
             Vec2::new(0.0, 1.0),
-            Vec2::new(1.0, 1.0),
+            Vec2::new(D, D),
             Vec2::new(1.0, 0.0),
-            Vec2::new(1.0, -1.0),
+            Vec2::new(D, -D),
             Vec2::new(0.0, -1.0),
-            Vec2::new(-1.0, -1.0),
+            Vec2::new(-D, -D),
             Vec2::new(-1.0, 0.0),
-            Vec2::new(-1.0, 1.0),
+            Vec2::new(-D, D),
         ];
 
         for (index, expected_direction) in expected.into_iter().enumerate() {

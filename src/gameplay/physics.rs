@@ -38,6 +38,7 @@ const SOLID_COLLIDER_COLOR: Color = Color::srgb(0.20, 1.00, 0.35);
 const SPIKE_SENSOR_COLOR: Color = Color::srgb(1.00, 0.15, 0.15);
 
 pub const FLOOR_CONTACT_ANGLE_DEGREES: f32 = 45.0;
+pub const PRESS_LOCKED_STRAIGHT_WALL_BOUNCE_SPEED: f32 = 3.0;
 
 fn floor_contact_threshold() -> f32 {
     FLOOR_CONTACT_ANGLE_DEGREES.to_radians().cos()
@@ -337,6 +338,10 @@ fn collect_solid_contacts(
 
             let normal_floor_dot = normal_toward_player.dot(bounce_direction);
 
+            let wall_dot = normal_toward_player.dot(wall_axis);
+
+            let is_clear_wall = wall_dot.abs() > WALL_COLLISION_THRESHOLD;
+
             // 공 중심 A -> 실제 접촉점 K
             let mut lowest_floor_alignment: Option<f32> = None;
 
@@ -422,7 +427,11 @@ fn collect_solid_contacts(
 
             // 2. 공의 아래쪽이지만 45도 초과:
             // 모서리 glide
-            if contact_floor_alignment > 0.0 {
+            //
+            // 단, 접촉면의 normal이 명백한 벽이라면
+            // 접촉점이 수치 오차로 조금 아래쪽에 잡혔더라도
+            // corner glide로 오인하지 않습니다.
+            if contact_floor_alignment > 0.0 && !is_clear_wall {
                 started_contacts.corner_glide = true;
 
                 continue;
@@ -436,9 +445,7 @@ fn collect_solid_contacts(
             }
 
             // 4. 벽
-            let wall_dot = normal_toward_player.dot(wall_axis);
-
-            if wall_dot.abs() > WALL_COLLISION_THRESHOLD {
+            if is_clear_wall {
                 let candidate_direction = wall_axis * wall_dot.signum();
 
                 let candidate_impact_speed =
@@ -507,6 +514,9 @@ fn apply_solid_contact_response(
         else {
             continue;
         };
+
+        let was_press_locked_straight =
+            straight_movement.is_some_and(|straight| !straight.can_cancel_on_press());
 
         let current_bounce_speed = velocity.0.dot(bounce_direction);
 
@@ -614,8 +624,11 @@ fn apply_solid_contact_response(
                 .incoming_velocity
                 .dot(started_contacts.wall_direction);
 
-            let outgoing_wall_speed =
-                (incoming_wall_speed * WALL_BOUNCE_DAMPING_RATIO).max(MIN_WALL_BOUNCE_SPEED);
+            let outgoing_wall_speed = if was_press_locked_straight {
+                PRESS_LOCKED_STRAIGHT_WALL_BOUNCE_SPEED
+            } else {
+                (incoming_wall_speed * WALL_BOUNCE_DAMPING_RATIO).max(MIN_WALL_BOUNCE_SPEED)
+            };
 
             let current_wall_speed = velocity.0.dot(started_contacts.wall_direction);
 

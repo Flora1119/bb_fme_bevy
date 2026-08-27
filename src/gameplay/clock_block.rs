@@ -1,8 +1,8 @@
 use super::{
-    BLOCK_WORLD_SIZE, BlockFacing, BlockVisualSet, ClockBlock, ClockSelection, CurrentGridPosition,
-    PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet, PlayInteractionSet,
-    PlaySession, PlaySessionSet, PlayerBall, PlayerControlInputSet, ResolvedMovementInteraction,
-    StraightMomentum, StraightMovement,
+    BLOCK_WORLD_SIZE, BlockFacing, BlockVisualSet, ClockBlock, ClockLaunchGuard, ClockSelection,
+    CurrentGridPosition, PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet,
+    PlayInteractionSet, PlaySession, PlaySessionSet, PlayerBall, PlayerControlInputSet,
+    ResolvedMovementInteraction, StraightMomentum, StraightMovement,
 };
 use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
@@ -28,7 +28,11 @@ impl Plugin for ClockBlockPlugin {
         )
         .add_systems(
             PhysicsSchedule,
-            collect_started_clock_interactions
+            (
+                collect_started_clock_interactions,
+                clear_clock_launch_guard_on_exit,
+            )
+                .chain()
                 .in_set(PlayInteractionSet::Collect)
                 .in_set(PlayInteractionCollectSet::Movement),
         )
@@ -55,8 +59,11 @@ impl Plugin for ClockBlockPlugin {
 
 fn collect_started_clock_interactions(
     mut collision_starts: MessageReader<CollisionStart>,
-    players: Query<(), (With<PlayerBall>, Without<ClockSelection>)>,
+
+    players: Query<Option<&ClockLaunchGuard>, (With<PlayerBall>, Without<ClockSelection>)>,
+
     clocks: Query<(), With<ClockBlock>>,
+
     mut pending: ResMut<PendingPlayInteractions>,
 ) {
     for event in collision_starts.read() {
@@ -68,6 +75,16 @@ fn collect_started_clock_interactions(
             } else {
                 continue;
             };
+
+        let Ok(guard) = players.get(player) else {
+            continue;
+        };
+
+        // 방금 발사되어 아직 같은 Clock Sensor 안에 있다면
+        // 재진입으로 취급하지 않습니다.
+        if guard.is_some_and(|guard| guard.source() == clock) {
+            continue;
+        }
 
         pending.push(PlayInteraction::movement(clock, player));
     }
@@ -241,6 +258,8 @@ fn launch_clock_selection_on_press(
             // RigidBody는 Avian 0.7에서 immutable Component라
             // &mut Query가 아니라 insert로 교체해야 합니다.
             .insert(RigidBody::Dynamic)
+            // 방금 나온 Clock Sensor에 즉시 재진입하지 않도록 잠금.
+            .insert(ClockLaunchGuard::new(selection.source()))
             // Clock 선택 상태 종료.
             .remove::<ClockSelection>()
             // 이전 직진 관성이 있다면 제거.
@@ -325,5 +344,35 @@ fn sync_clock_arrow_visuals(
         transform.rotation = Quat::from_rotation_z(world_angle - parent_angle);
 
         *visibility = Visibility::Inherited;
+    }
+}
+
+fn clear_clock_launch_guard_on_exit(
+    mut commands: Commands,
+    mut collision_ends: MessageReader<CollisionEnd>,
+
+    players: Query<&ClockLaunchGuard, With<PlayerBall>>,
+
+    clocks: Query<(), With<ClockBlock>>,
+) {
+    for event in collision_ends.read() {
+        let (player, clock) =
+            if players.contains(event.collider1) && clocks.contains(event.collider2) {
+                (event.collider1, event.collider2)
+            } else if players.contains(event.collider2) && clocks.contains(event.collider1) {
+                (event.collider2, event.collider1)
+            } else {
+                continue;
+            };
+
+        let Ok(guard) = players.get(player) else {
+            continue;
+        };
+
+        if guard.source() != clock {
+            continue;
+        }
+
+        commands.entity(player).remove::<ClockLaunchGuard>();
     }
 }
