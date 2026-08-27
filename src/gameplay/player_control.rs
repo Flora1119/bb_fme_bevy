@@ -1,6 +1,6 @@
 use super::{
-    MapSpawnSet, PLAYER_GRAVITY_SCALE, PlaySession, PlaySessionSet, PlayerBall, StraightMomentum,
-    StraightMovement,
+    ClockSelection, MapSpawnSet, PLAYER_GRAVITY_SCALE, PlaySession, PlaySessionSet, PlayerBall,
+    StraightMomentum, StraightMovement,
 };
 use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
@@ -21,6 +21,7 @@ impl Plugin for PlayerControlPlugin {
                 PreUpdate,
                 (capture_keyboard_input, cancel_straight_movement_on_press)
                     .chain()
+                    .in_set(PlayerControlInputSet)
                     .after(InputSystems),
             )
             .add_systems(
@@ -32,6 +33,9 @@ impl Plugin for PlayerControlPlugin {
             );
     }
 }
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlayerControlInputSet;
 
 #[derive(Component, Debug, Clone, Copy, Default, PartialEq)]
 pub struct PlayerInputIntent {
@@ -102,7 +106,11 @@ fn apply_horizontal_control(
             &mut LinearVelocity,
             Option<&StraightMomentum>,
         ),
-        (With<PlayerBall>, Without<StraightMovement>),
+        (
+            With<PlayerBall>,
+            Without<StraightMovement>,
+            Without<ClockSelection>,
+        ),
     >,
 ) {
     if !session.is_playing() {
@@ -238,6 +246,10 @@ fn cancel_straight_movement_on_press(
     }
 
     for (entity, straight, mut gravity_scale) in &mut players {
+        if !straight.can_cancel_on_press() {
+            continue;
+        }
+
         let momentum = StraightMomentum::new(
             straight.direction(),
             straight.speed(),

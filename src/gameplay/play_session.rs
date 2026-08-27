@@ -8,6 +8,7 @@ impl Plugin for PlaySessionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlaySession>()
             .init_resource::<PendingPlayInteractions>()
+            .add_message::<ResolvedMovementInteraction>()
             .configure_sets(
                 PhysicsSchedule,
                 (
@@ -27,6 +28,7 @@ impl Plugin for PlaySessionPlugin {
                 (
                     PlayInteractionCollectSet::Death,
                     PlayInteractionCollectSet::BoundaryDeath,
+                    PlayInteractionCollectSet::Movement,
                     PlayInteractionCollectSet::Collection,
                 )
                     .chain(),
@@ -57,6 +59,7 @@ pub enum PlayInteractionSet {
 pub enum PlayInteractionCollectSet {
     Death,
     BoundaryDeath,
+    Movement,
     Collection,
 }
 
@@ -135,7 +138,7 @@ pub enum PlayInteraction {
     Death { source: Entity },
 
     // 포탈이나 강제 이동 계열이 나중에 이 우선순위를 사용합니다.
-    Movement { source: Entity },
+    Movement { source: Entity, actor: Entity },
 
     Collection { source: Entity },
 
@@ -147,8 +150,8 @@ impl PlayInteraction {
         Self::Death { source }
     }
 
-    pub const fn movement(source: Entity) -> Self {
-        Self::Movement { source }
+    pub const fn movement(source: Entity, actor: Entity) -> Self {
+        Self::Movement { source, actor }
     }
 
     pub const fn collection(source: Entity) -> Self {
@@ -162,7 +165,7 @@ impl PlayInteraction {
     pub const fn source(self) -> Entity {
         match self {
             Self::Death { source }
-            | Self::Movement { source }
+            | Self::Movement { source, .. }
             | Self::Collection { source }
             | Self::Switch { source } => source,
         }
@@ -177,8 +180,33 @@ impl PlayInteraction {
         }
     }
 
-    fn sort_key(self) -> (u8, u64) {
-        (self.priority(), self.source().to_bits())
+    fn sort_key(self) -> (u8, u64, u64) {
+        let actor = match self {
+            Self::Movement { actor, .. } => actor.to_bits(),
+            _ => 0,
+        };
+
+        (self.priority(), self.source().to_bits(), actor)
+    }
+}
+
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResolvedMovementInteraction {
+    source: Entity,
+    actor: Entity,
+}
+
+impl ResolvedMovementInteraction {
+    pub const fn new(source: Entity, actor: Entity) -> Self {
+        Self { source, actor }
+    }
+
+    pub const fn source(self) -> Entity {
+        self.source
+    }
+
+    pub const fn actor(self) -> Entity {
+        self.actor
     }
 }
 
@@ -201,6 +229,7 @@ fn resolve_pending_play_interactions(
     mut commands: Commands,
     mut pending: ResMut<PendingPlayInteractions>,
     mut session: ResMut<PlaySession>,
+    mut resolved_movements: MessageWriter<ResolvedMovementInteraction>,
     active_play_world: Option<Res<ActivePlayWorld>>,
     play_worlds: Query<&PlayWorld>,
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
@@ -229,8 +258,12 @@ fn resolve_pending_play_interactions(
                 break;
             }
 
-            PlayInteraction::Movement { .. } => {
-                // Phase 4 후속 작업에서 포탈/강제 이동 규칙을 연결합니다.
+            PlayInteraction::Movement { source, actor } => {
+                resolved_movements.write(ResolvedMovementInteraction::new(source, actor));
+
+                // 강제 이동이 결정되면 같은 물리 틱에서
+                // 이전 위치에서 발생한 Collection / Switch는 처리하지 않습니다.
+                break;
             }
 
             PlayInteraction::Collection { source } => {
@@ -292,7 +325,7 @@ mod tests {
     #[test]
     fn interaction_priority_is_independent_of_arrival_order() {
         let death = PlayInteraction::death(entity(4));
-        let movement = PlayInteraction::movement(entity(3));
+        let movement = PlayInteraction::movement(entity(3), entity(30));
         let collection = PlayInteraction::collection(entity(2));
         let switch = PlayInteraction::switch(entity(1));
 

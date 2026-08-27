@@ -1,6 +1,6 @@
 use super::{
-    CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall, SolidBlock,
-    StraightBlock, TransparentStar, spike_has_solid_collider,
+    ClockBlock, CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall,
+    SolidBlock, StraightBlock, TransparentStar, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -204,6 +204,13 @@ fn spawn_requested_map(
                     StraightBlock::high_diagonal(block.direction),
                     OneShotFunctionBlock,
                 ));
+            }
+            "fb_clock_d4" => {
+                entity_commands.insert(ClockBlock::dir4());
+            }
+
+            "fb_clock_d8" => {
+                entity_commands.insert(ClockBlock::dir8());
             }
 
             _ => {}

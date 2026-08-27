@@ -1,6 +1,7 @@
 mod block_role;
 mod block_visual;
 mod camera_follow;
+mod clock_block;
 mod development_map;
 mod map_boundary;
 mod map_presentation;
@@ -18,6 +19,7 @@ mod static_block;
 pub use block_role::*;
 pub use block_visual::*;
 pub use camera_follow::*;
+pub use clock_block::*;
 pub use development_map::*;
 pub use map_boundary::*;
 pub use map_presentation::*;

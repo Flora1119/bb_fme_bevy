@@ -1,8 +1,8 @@
 use super::{
-    BLOCK_WORLD_SIZE, BlockIdentity, ConsumedFunctionBlock, CurrentGridPosition, DeadlySpike,
-    JumpBlock, MapSpawnSet, OneShotFunctionBlock, PlayInteractionSet, PlaySession, PlayerBall,
-    SolidBlock, StraightBlock, StraightMomentum, StraightMovement, solid_collider_geometry_for,
-    spike_collider_profile_for,
+    BLOCK_WORLD_SIZE, BlockIdentity, ClockBlock, ConsumedFunctionBlock, CurrentGridPosition,
+    DeadlySpike, JumpBlock, MapSpawnSet, OneShotFunctionBlock, PlayInteractionSet, PlaySession,
+    PlayerBall, SolidBlock, StraightBlock, StraightMomentum, StraightMovement,
+    solid_collider_geometry_for, spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -30,7 +30,9 @@ pub const PLAYER_GRAVITY_SCALE: f32 = 3.0;
 pub const SOLID_COLLIDER_SIZE: Vec2 = Vec2::splat(BLOCK_WORLD_SIZE);
 pub const SPIKE_SENSOR_SIZE: Vec2 = Vec2::splat(0.5 * BLOCK_WORLD_SIZE);
 pub const SPIKE_SENSOR_OFFSET: Vec2 = Vec2::new(0.0, -0.25 * BLOCK_WORLD_SIZE);
+pub const CLOCK_SENSOR_SIZE: f32 = 0.9 * BLOCK_WORLD_SIZE;
 
+const CLOCK_SENSOR_COLOR: Color = Color::srgb(1.00, 0.75, 0.20);
 const PLAYER_COLLIDER_COLOR: Color = Color::srgb(0.15, 0.80, 1.00);
 const SOLID_COLLIDER_COLOR: Color = Color::srgb(0.20, 1.00, 0.35);
 const SPIKE_SENSOR_COLOR: Color = Color::srgb(1.00, 0.15, 0.15);
@@ -185,6 +187,7 @@ fn attach_block_colliders(
         ),
     >,
     spikes: Query<(Entity, Option<&BlockIdentity>), (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
+    clocks: Query<Entity, (With<ClockBlock>, Without<BlockPhysicsBody>)>,
 ) {
     // 일반 SolidBlock
     //
@@ -253,6 +256,21 @@ fn attach_block_colliders(
                 ChildOf(entity),
             ));
         }
+    }
+
+    // 방향 선택(시계) 블록
+    //
+    // Unity 원본과 동일하게
+    // 0.9 x 0.9 Trigger 영역으로 사용합니다.
+    for entity in &clocks {
+        commands.entity(entity).insert((
+            BlockPhysicsBody,
+            RigidBody::Static,
+            Sensor,
+            CollisionEventsEnabled,
+            Collider::rectangle(CLOCK_SENSOR_SIZE, CLOCK_SENSOR_SIZE),
+            DebugRender::default().with_collider_color(CLOCK_SENSOR_COLOR),
+        ));
     }
 }
 
