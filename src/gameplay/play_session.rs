@@ -8,6 +8,13 @@ impl Plugin for PlaySessionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlaySession>()
             .init_resource::<PendingPlayInteractions>()
+            // 여러 interaction collector가 같은 물리 틱에
+            // PendingPlayInteractions에 독립적으로 push할 수 있습니다.
+            //
+            // 실제 처리 전에 normalize_interactions()가
+            // priority / source / actor 기준으로 결정적 정렬하므로
+            // collector들의 실행 순서는 게임 결과에 영향을 주지 않습니다.
+            .allow_ambiguous_resource::<PendingPlayInteractions>()
             .add_message::<ResolvedMovementInteraction>()
             .configure_sets(
                 PhysicsSchedule,

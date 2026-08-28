@@ -3,9 +3,9 @@ use bb_fme_bevy::{
     domain::{GridPosition, ValidatedMap},
     gameplay::{
         GridIndex, MIN_VIEW_HEIGHT, MIN_VIEW_WIDTH, MapCamera, MapPresentationPlugin,
-        MapSpawnPlugin, PLAYER_COLOR, PLAYER_VISUAL_SIZE, PlaceholderVisual, SOLID_COLOR,
-        SOLID_VISUAL_SIZE, SPIKE_COLOR, SPIKE_VISUAL_SIZE, STAR_COLOR, STAR_VISUAL_SIZE,
-        SpawnValidatedMap,
+        MapSpawnPlugin, PLAYER_COLOR, PLAYER_VISUAL_SIZE, PLAYER_VISUAL_Z, PlaceholderVisual,
+        SOLID_COLOR, SOLID_VISUAL_SIZE, SPIKE_COLOR, SPIKE_VISUAL_SIZE, STAR_COLOR,
+        STAR_VISUAL_SIZE, SpawnValidatedMap,
     },
     map::MapDocument,
 };
@@ -85,4 +85,30 @@ fn gameplay_roles_receive_distinct_placeholder_sprites() {
         assert_eq!(sprite.custom_size, Some(expected_size));
         assert!(app.world().get::<PlaceholderVisual>(entity).is_some());
     }
+}
+
+#[test]
+fn player_visual_is_rendered_in_front_of_map_blocks() {
+    let app = app_with_presented_map();
+
+    let index = app.world().resource::<GridIndex>();
+
+    let player = index
+        .entity_at(GridPosition::new(2, 2))
+        .expect("player must exist");
+
+    let block = index
+        .entity_at(GridPosition::new(2, 0))
+        .expect("block must exist");
+
+    let player_z = app.world().get::<Transform>(player).unwrap().translation.z;
+
+    let block_z = app.world().get::<Transform>(block).unwrap().translation.z;
+
+    assert_eq!(player_z, PLAYER_VISUAL_Z);
+
+    assert!(
+        player_z > block_z,
+        "player must render in front of map blocks"
+    );
 }

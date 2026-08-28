@@ -10,17 +10,16 @@ pub const MIN_VIEW_HEIGHT: f32 = 15.0;
 pub const PLAYER_VISUAL_SIZE: Vec2 = Vec2::splat(0.72 * BLOCK_WORLD_SIZE);
 pub const STAR_VISUAL_SIZE: Vec2 = Vec2::splat(0.60 * BLOCK_WORLD_SIZE);
 pub const SOLID_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
+pub const SPIKE_VISUAL_SIZE: Vec2 = Vec2::splat(0.90 * BLOCK_WORLD_SIZE);
+pub const JUMP_BLOCK_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
 
 pub const PLAYER_COLOR: Color = Color::srgb(0.15, 0.80, 1.00);
 pub const STAR_COLOR: Color = Color::srgb(1.00, 0.82, 0.12);
 pub const SOLID_COLOR: Color = Color::srgb(0.30, 0.36, 0.46);
-
-pub const SPIKE_VISUAL_SIZE: Vec2 = Vec2::splat(0.90 * BLOCK_WORLD_SIZE);
 pub const SPIKE_COLOR: Color = Color::srgb(0.95, 0.20, 0.25);
-
-pub const JUMP_BLOCK_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
-
 pub const JUMP_BLOCK_COLOR: Color = Color::srgb(1.00, 0.48, 0.12);
+
+pub const PLAYER_VISUAL_Z: f32 = 10.0;
 
 pub struct MapPresentationPlugin;
 
@@ -32,6 +31,7 @@ impl Plugin for MapPresentationPlugin {
                 Update,
                 (
                     frame_camera_for_loaded_map,
+                    place_player_on_front_layer,
                     add_player_visuals,
                     add_star_visuals,
                     add_solid_visuals,
@@ -53,6 +53,12 @@ pub struct MapCamera;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlaceholderVisual;
+
+fn place_player_on_front_layer(mut players: Query<&mut Transform, Added<PlayerBall>>) {
+    for mut transform in &mut players {
+        transform.translation.z = PLAYER_VISUAL_Z;
+    }
+}
 
 fn spawn_map_camera(mut commands: Commands) {
     commands.spawn((

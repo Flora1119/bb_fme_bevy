@@ -21,8 +21,14 @@ impl Plugin for TeleportBlockPlugin {
             teleport_resolved_players
                 .after(SolidContactResponseSet)
                 .before(PhysicsStepSystems::Sleeping),
-        );
+        )
+        .add_systems(Update, snap_teleported_player_visual);
     }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+struct TeleportVisualSnap {
+    target: Vec2,
 }
 
 fn collect_started_teleport_interactions(
@@ -67,12 +73,10 @@ fn collect_started_teleport_interactions(
 
 fn teleport_resolved_players(
     mut resolved_movements: MessageReader<ResolvedMovementInteraction>,
-
     entrances: Query<&TeleportEntrance>,
-
     exits: Query<(&TeleportExit, &CurrentGridPosition)>,
-
     mut players: Query<(&mut Position, &mut Transform), With<PlayerBall>>,
+    mut commands: Commands,
 ) {
     for movement in resolved_movements.read() {
         let source = movement.source();
@@ -115,5 +119,24 @@ fn teleport_resolved_players(
 
         transform.translation.x = target.x;
         transform.translation.y = target.y;
+
+        commands
+            .entity(player)
+            .insert(TeleportVisualSnap { target });
+    }
+}
+
+fn snap_teleported_player_visual(
+    mut commands: Commands,
+    mut players: Query<(Entity, &TeleportVisualSnap, &mut Transform), With<PlayerBall>>,
+) {
+    for (player, snap, mut transform) in &mut players {
+        // RunFixedMainLoop의 interpolation 이후
+        // Update에서 다시 출구 위치로 정확히 snap합니다.
+        //
+        // z 값은 건드리지 않습니다.
+        transform.translation = snap.target.extend(transform.translation.z);
+
+        commands.entity(player).remove::<TeleportVisualSnap>();
     }
 }
