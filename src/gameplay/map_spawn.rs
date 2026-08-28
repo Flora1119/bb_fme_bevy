@@ -1,6 +1,7 @@
 use super::{
     ClockBlock, CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall,
-    SolidBlock, StraightBlock, TransparentStar, spike_has_solid_collider,
+    SolidBlock, StraightBlock, TeleportEntrance, TeleportExit, TransparentStar,
+    spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -211,6 +212,22 @@ fn spawn_requested_map(
 
             "fb_clock_d8" => {
                 entity_commands.insert(ClockBlock::dir8());
+            }
+
+            "fb_tp1_in" => {
+                entity_commands.insert(TeleportEntrance::one());
+            }
+
+            "fb_tp1_out" => {
+                entity_commands.insert(TeleportExit::one());
+            }
+
+            "fb_tp2_in" => {
+                entity_commands.insert(TeleportEntrance::two());
+            }
+
+            "fb_tp2_out" => {
+                entity_commands.insert(TeleportExit::two());
             }
 
             _ => {}

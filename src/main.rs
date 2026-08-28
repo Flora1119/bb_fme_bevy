@@ -3,7 +3,7 @@ use bb_fme_bevy::gameplay::{
     BlockVisualPlugin, ClockBlockPlugin, DevelopmentMapPlugin, GameplayPhysicsPlugin,
     MapBoundaryPlugin, MapPresentationPlugin, MapSpawnPlugin, PlayHudPlugin, PlayRestartPlugin,
     PlaySessionPlugin, PlayerCameraPlugin, PlayerControlPlugin, SpikeDeathPlugin,
-    StarCollectionPlugin,
+    StarCollectionPlugin, TeleportBlockPlugin,
 };
 use bevy::prelude::*;
 
@@ -18,14 +18,17 @@ fn main() {
             PlayHudPlugin,
             MapBoundaryPlugin,
             StarCollectionPlugin,
-            SpikeDeathPlugin,
-            ClockBlockPlugin,
-            PlayerControlPlugin,
-            PhysicsDebugPlugin,
             BlockVisualPlugin,
             MapPresentationPlugin,
             PlayerCameraPlugin,
             DevelopmentMapPlugin,
+        ))
+        .add_plugins((
+            SpikeDeathPlugin,
+            ClockBlockPlugin,
+            TeleportBlockPlugin,
+            PlayerControlPlugin,
+            PhysicsDebugPlugin,
         ))
         .run();
 }
