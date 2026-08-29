@@ -1,14 +1,13 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         BlockPhysicsBody, ConsumedFunctionBlock, GameplayPhysicsPlugin, GridIndex, MapSpawnPlugin,
-        OneShotFunctionBlock, PHYSICS_HZ, PLAYER_GRAVITY_SCALE, PlaySessionPlugin, PlayerBall,
+        OneShotFunctionBlock, PHYSICS_HZ, PLAYER_GRAVITY_SCALE, PlaySessionPlugin,
         PlayerControlPlugin, SolidBlock, SpawnValidatedMap, StraightBlock, StraightMomentum,
         StraightMovement,
     },
-    map::MapDocument,
 };
 use bevy::input::{
     ButtonState,
@@ -18,9 +17,8 @@ use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
 const STRAIGHT_MAP: &str = r#"
 {
@@ -118,16 +116,6 @@ const STRAIGHT_MAP: &str = r#"
 }
 "#;
 
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(STRAIGHT_MAP).expect("straight map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("straight map must validate")
-}
-
 fn app_with_straight_blocks() -> App {
     let mut app = App::new();
 
@@ -147,7 +135,7 @@ fn app_with_straight_blocks() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(STRAIGHT_MAP)));
 
     app.update();
     app.update();
@@ -345,51 +333,6 @@ fn cardinal_straight_launch_repositions_the_player_and_disables_gravity() {
 
     // 동시에 순간정지가 되어서도 안 됩니다.
     assert!(actual_x > 0.0, "residual momentum vanished too quickly");
-
-    // // 직진은 즉시 해제되지만,
-    // // 속도 자체가 순간적으로 0이 되면
-    // // 안 됩니다.
-    // assert!(app.world().get::<StraightMomentum>(player,).is_some());
-
-    // let speed_after_press = app.world().get::<LinearVelocity>(player).unwrap().0.x;
-
-    // assert!(
-    //     speed_after_press > 0.0,
-    //     "straight cancel stopped \
-    //  the player instantly"
-    // );
-
-    // assert!(
-    //     speed_after_press < StraightBlock::STANDARD_SPEED,
-    //     "straight brake did not \
-    //  reduce forward speed"
-    // );
-
-    // app.world_mut().write_message(KeyboardInput {
-    //     key_code: KeyCode::ArrowLeft,
-    //     logical_key: Key::ArrowLeft,
-    //     state: ButtonState::Released,
-    //     text: None,
-    //     repeat: false,
-    //     window: test_window,
-    // });
-
-    // let mut brake_finished = false;
-
-    // for _ in 0..20 {
-    //     app.update();
-
-    //     if app.world().get::<StraightMomentum>(player).is_none() {
-    //         brake_finished = true;
-    //         break;
-    //     }
-    // }
-
-    // assert!(
-    //     brake_finished,
-    //     "straight brake did not \
-    //  finish quickly enough"
-    // );
 
     let mut momentum_finished = false;
 

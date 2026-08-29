@@ -69,7 +69,13 @@ impl Plugin for GameplayPhysicsPlugin {
             .init_resource::<PendingSolidContactResponses>()
             .add_systems(
                 Update,
-                (attach_player_physics, attach_block_colliders)
+                (
+                    attach_player_physics,
+                    attach_solid_block_colliders,
+                    attach_spike_colliders,
+                    attach_clock_sensors,
+                    attach_teleport_sensors,
+                )
                     .in_set(PhysicsInitializationSet)
                     .after(MapSpawnSet),
             )
@@ -183,7 +189,7 @@ fn attach_player_physics(
     }
 }
 
-fn attach_block_colliders(
+fn attach_solid_block_colliders(
     mut commands: Commands,
     solids: Query<
         (Entity, Option<&BlockIdentity>),
@@ -193,14 +199,11 @@ fn attach_block_colliders(
             Without<BlockPhysicsBody>,
         ),
     >,
-    spikes: Query<(Entity, Option<&BlockIdentity>), (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
-    clocks: Query<Entity, (With<ClockBlock>, Without<BlockPhysicsBody>)>,
-    teleports: Query<Entity, (With<TeleportEntrance>, Without<BlockPhysicsBody>)>,
 ) {
     // 일반 SolidBlock
     //
     // DeadlySpike도 함께 가진 복합 가시는
-    // 아래 spikes 루프에서 별도로 처리합니다.
+    // attach_spike_colliders에서 별도로 처리합니다.
     for (entity, identity) in &solids {
         let geometry = solid_collider_geometry_for(identity.map(|identity| identity.id.as_str()));
 
@@ -224,7 +227,12 @@ fn attach_block_colliders(
             ));
         }
     }
+}
 
+fn attach_spike_colliders(
+    mut commands: Commands,
+    spikes: Query<(Entity, Option<&BlockIdentity>), (With<DeadlySpike>, Without<BlockPhysicsBody>)>,
+) {
     // 가시 및 가시+블록 복합체
     for (entity, identity) in &spikes {
         let profile = spike_collider_profile_for(identity.map(|identity| identity.id.as_str()));
@@ -265,11 +273,16 @@ fn attach_block_colliders(
             ));
         }
     }
+}
 
-    // 방향 선택(시계) 블록
+fn attach_clock_sensors(
+    mut commands: Commands,
+    clocks: Query<Entity, (With<ClockBlock>, Without<BlockPhysicsBody>)>,
+) {
+    // 방향 선택(시계) 블록.
     //
     // Unity 원본과 동일하게
-    // 0.9 x 0.9 Trigger 영역으로 사용합니다.
+    // 0.9 x 0.9 Trigger 영역입니다.
     for entity in &clocks {
         commands.entity(entity).insert((
             BlockPhysicsBody,
@@ -280,8 +293,13 @@ fn attach_block_colliders(
             DebugRender::default().with_collider_color(CLOCK_SENSOR_COLOR),
         ));
     }
+}
 
-    // 텔레포트 입구
+fn attach_teleport_sensors(
+    mut commands: Commands,
+    teleports: Query<Entity, (With<TeleportEntrance>, Without<BlockPhysicsBody>)>,
+) {
+    // 텔레포트 입구.
     //
     // Unity 원본과 동일하게
     // 0.9 x 0.9 Trigger 영역입니다.

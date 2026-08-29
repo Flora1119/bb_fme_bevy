@@ -1,33 +1,22 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         CollectedStar, CollectibleStar, GameplayPhysicsPlugin, GridIndex, MapSpawnPlugin,
         PHYSICS_HZ, PlayRestartPlugin, PlaySession, PlaySessionPlugin, RestartPlayWorld,
         STAR_SENSOR_RADIUS, SpawnValidatedMap, StarCollectionPlugin, StarSensorCollider,
         TransparentStar,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
-
 const STAR_MAP: &str = include_str!("../assets/maps/phase5a_stars.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument = serde_json::from_str(STAR_MAP).expect("star map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("star map must validate")
-}
 
 fn app_with_star_map() -> App {
     let mut app = App::new();
@@ -49,7 +38,7 @@ fn app_with_star_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(STAR_MAP)));
 
     app.update();
     app.update();
@@ -121,7 +110,7 @@ fn collected_count_at(position: Vec2) -> u32 {
 
 #[test]
 fn star_map_projects_default_and_explicit_scale_options() {
-    let map = load_validated_map();
+    let map = load_validated_map(STAR_MAP);
 
     assert_eq!(map.blocks.len(), 11);
 

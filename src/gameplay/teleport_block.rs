@@ -1,10 +1,62 @@
 use super::{
     BLOCK_WORLD_SIZE, CurrentGridPosition, PendingPlayInteractions, PlayInteraction,
     PlayInteractionCollectSet, PlayInteractionSet, PlayerBall, ResolvedMovementInteraction,
-    SolidContactResponseSet, TeleportEntrance, TeleportExit,
+    SolidContactResponseSet,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TeleportChannel {
+    One,
+    Two,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TeleportEntrance {
+    channel: TeleportChannel,
+}
+
+impl TeleportEntrance {
+    pub const fn one() -> Self {
+        Self {
+            channel: TeleportChannel::One,
+        }
+    }
+
+    pub const fn two() -> Self {
+        Self {
+            channel: TeleportChannel::Two,
+        }
+    }
+
+    pub const fn channel(self) -> TeleportChannel {
+        self.channel
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TeleportExit {
+    channel: TeleportChannel,
+}
+
+impl TeleportExit {
+    pub const fn one() -> Self {
+        Self {
+            channel: TeleportChannel::One,
+        }
+    }
+
+    pub const fn two() -> Self {
+        Self {
+            channel: TeleportChannel::Two,
+        }
+    }
+
+    pub const fn channel(self) -> TeleportChannel {
+        self.channel
+    }
+}
 
 pub struct TeleportBlockPlugin;
 

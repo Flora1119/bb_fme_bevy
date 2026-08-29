@@ -1,32 +1,21 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         ConsumedFunctionBlock, GameplayPhysicsPlugin, GridIndex, JumpBlock, MapSpawnPlugin,
         OneShotFunctionBlock, PHYSICS_HZ, PlayRestartPlugin, PlaySessionPlugin, RestartPlayWorld,
         SolidBlock, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
-
 const FUNC_MAP: &str = include_str!("../assets/maps/phase5a_func_static.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument = serde_json::from_str(FUNC_MAP).expect("func map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("func map must validate")
-}
 
 fn app_with_func_map() -> App {
     let mut app = App::new();
@@ -47,7 +36,7 @@ fn app_with_func_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(FUNC_MAP)));
 
     app.update();
     app.update();

@@ -1,21 +1,19 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         BLOCK_WORLD_SIZE, BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MapSpawnPlugin,
         PHYSICS_HZ, PlayRestartPlugin, PlaySessionPlugin, RestartPlayWorld, SpawnValidatedMap,
         TELEPORT_SENSOR_SIZE, TeleportBlockPlugin, TeleportChannel, TeleportEntrance, TeleportExit,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
 const TELEPORT_MAP: &str = include_str!("../assets/maps/phase5a_func_teleport.json");
 
@@ -26,16 +24,6 @@ const TP1_OUT: GridPosition = GridPosition::new(18, 3);
 
 const TP2_IN: GridPosition = GridPosition::new(6, 9);
 const TP2_OUT: GridPosition = GridPosition::new(18, 9);
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(TELEPORT_MAP).expect("teleport map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("teleport map must validate")
-}
 
 fn app_with_teleport_map() -> App {
     let mut app = App::new();
@@ -57,7 +45,7 @@ fn app_with_teleport_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(TELEPORT_MAP)));
 
     app.update();
     app.update();
@@ -213,7 +201,7 @@ fn run_teleport_case(
 
 #[test]
 fn teleport_map_declares_both_channels_and_matching_exit_settings() {
-    let map = load_validated_map();
+    let map = load_validated_map(TELEPORT_MAP);
 
     assert_eq!(map.blocks.len(), 9);
 

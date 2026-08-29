@@ -4,10 +4,11 @@ use bb_fme_bevy::{
     domain::{GridPosition, ValidatedMap},
     gameplay::{
         ActivePlayWorld, CollectedStar, GameplayPhysicsPlugin, GridIndex, MapBoundaryPlugin,
-        MapCamera, MapPresentationPlugin, MapSpawnPlugin, PHYSICS_HZ, PendingPlayInteractions,
-        PlayHud, PlayHudPlugin, PlayInteraction, PlayRestartPlugin, PlaySession, PlaySessionPlugin,
-        PlaySessionState, PlayWorld, PlayerCameraPlugin, RestartPlayWorld, RuntimeBlock,
-        SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider, StarCollectionPlugin,
+        MapCamera, MapPresentationPlugin, MapSpawnPlugin, PHYSICS_HZ, PLAYER_VISUAL_Z,
+        PendingPlayInteractions, PlayHud, PlayHudPlugin, PlayInteraction, PlayRestartPlugin,
+        PlaySession, PlaySessionPlugin, PlaySessionState, PlayWorld, PlayerCameraPlugin,
+        RestartPlayWorld, RuntimeBlock, SpawnValidatedMap, SpikeDeathPlugin, SpikeSensorCollider,
+        StarCollectionPlugin,
     },
     map::MapDocument,
 };
@@ -265,7 +266,10 @@ fn restart_restores_world_session_star_player_and_camera() {
         .get::<Transform>(new_player)
         .expect("new player must have Transform");
 
-    assert_eq!(player_transform.translation, Vec3::new(12.0, 2.0, 0.0));
+    assert_eq!(
+        player_transform.translation,
+        Vec3::new(12.0, 2.0, PLAYER_VISUAL_Z)
+    );
 
     let velocity = app
         .world()

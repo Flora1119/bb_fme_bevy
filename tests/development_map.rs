@@ -22,7 +22,20 @@ fn development_plugin_spawns_the_embedded_map_on_startup() {
         .get::<PlayWorld>(root)
         .expect("active root must contain PlayWorld");
 
-    assert_eq!(play_world.definition().map_name, "phase5a_func_straight");
+    let definition = play_world.definition();
 
-    assert_eq!(app.world().resource::<GridIndex>().len(), 21);
+    assert!(
+        !definition.map_name.is_empty(),
+        "development map must have a name"
+    );
+
+    assert!(
+        !definition.blocks.is_empty(),
+        "development map must contain blocks"
+    );
+
+    assert_eq!(
+        app.world().resource::<GridIndex>().len(),
+        definition.blocks.len(),
+    );
 }

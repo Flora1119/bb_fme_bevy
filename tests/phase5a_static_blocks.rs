@@ -1,21 +1,19 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{CardinalDirection, GridPosition, ValidatedMap},
+    domain::{CardinalDirection, GridPosition},
     gameplay::{
         BLOCK_WORLD_SIZE, BlockFacing, BlockIdentity, GameplayPhysicsPlugin, GridIndex,
         MIN_BOUNCE_VELOCITY, MapSpawnPlugin, PHYSICS_HZ, PlayRestartPlugin, PlaySessionPlugin,
         RestartPlayWorld, SolidColliderChild, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
 const STATIC_BLOCK_MAP: &str = include_str!("../assets/maps/phase5a_static_blocks.json");
 
@@ -25,16 +23,6 @@ struct PartialColliderSnapshot {
     local_offset: Vec2,
     global_center: Vec2,
     size: Vec2,
-}
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(STATIC_BLOCK_MAP).expect("static block map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("static block map must validate")
 }
 
 fn app_with_static_block_map() -> App {
@@ -56,7 +44,7 @@ fn app_with_static_block_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(STATIC_BLOCK_MAP)));
 
     // 첫 Update:
     // PlayWorld와 RuntimeBlock 생성.
@@ -230,7 +218,7 @@ fn partial_collider_entities(app: &mut App) -> Vec<Entity> {
 
 #[test]
 fn phase5a_map_contains_all_static_block_profiles() {
-    let map = load_validated_map();
+    let map = load_validated_map(STATIC_BLOCK_MAP);
 
     assert_eq!(map.blocks.len(), 12);
 

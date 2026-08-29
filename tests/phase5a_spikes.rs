@@ -1,22 +1,20 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{CardinalDirection, GridPosition, ValidatedMap},
+    domain::{CardinalDirection, GridPosition},
     gameplay::{
         BlockFacing, BlockIdentity, GameplayPhysicsPlugin, GridIndex, MIN_BOUNCE_VELOCITY,
         MapSpawnPlugin, PHYSICS_HZ, PlayRestartPlugin, PlaySession, PlaySessionPlugin,
         PlaySessionState, RestartPlayWorld, SolidColliderChild, SpawnValidatedMap,
         SpikeDeathPlugin, SpikeSensorCollider, spike_collider_profile,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
 const SPIKE_MAP: &str = include_str!("../assets/maps/phase5a_spikes.json");
 
@@ -44,16 +42,6 @@ struct ColliderSnapshot {
     global_center: Vec2,
 }
 
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(SPIKE_MAP).expect("spike map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("spike map must validate")
-}
-
 fn app_with_spike_map() -> App {
     let mut app = App::new();
 
@@ -74,7 +62,7 @@ fn app_with_spike_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(SPIKE_MAP)));
 
     // RuntimeBlock 생성
     app.update();
@@ -373,7 +361,7 @@ fn assert_spike_runtime_geometry(
 
 #[test]
 fn phase5a_spike_map_contains_six_profiles_in_four_directions() {
-    let map = load_validated_map();
+    let map = load_validated_map(SPIKE_MAP);
 
     assert_eq!(map.blocks.len(), 27);
 

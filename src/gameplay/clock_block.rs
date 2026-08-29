@@ -1,8 +1,8 @@
 use super::{
-    BLOCK_WORLD_SIZE, BlockFacing, BlockVisualSet, ClockBlock, ClockLaunchGuard, ClockSelection,
-    CurrentGridPosition, PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet,
-    PlayInteractionSet, PlaySession, PlaySessionSet, PlayerBall, PlayerControlInputSet,
-    ResolvedMovementInteraction, StraightMomentum, StraightMovement,
+    BLOCK_WORLD_SIZE, BlockFacing, BlockVisualSet, CurrentGridPosition, PendingPlayInteractions,
+    PlayInteraction, PlayInteractionCollectSet, PlayInteractionSet, PlaySession, PlaySessionSet,
+    PlayerBall, PlayerControlInputSet, ResolvedMovementInteraction, StraightMomentum,
+    StraightMovement,
 };
 use avian2d::prelude::*;
 use bevy::{input::InputSystems, prelude::*};
@@ -10,6 +10,141 @@ use bevy::{input::InputSystems, prelude::*};
 const CLOCK_ARROW_ASSET_PATH: &str = "sprites/funcblock/fb_clock_arrow.png";
 
 const CLOCK_ARROW_Z: f32 = 0.1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClockDirectionMode {
+    Dir4,
+    Dir8,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClockBlock {
+    mode: ClockDirectionMode,
+}
+
+impl ClockBlock {
+    pub const ROTATE_INTERVAL_SECONDS: f32 = 0.3;
+    pub const LAUNCH_SPEED: f32 = 15.0;
+    pub const LAUNCH_OFFSET_BLOCKS: f32 = 0.5;
+
+    pub const fn dir4() -> Self {
+        Self {
+            mode: ClockDirectionMode::Dir4,
+        }
+    }
+
+    pub const fn dir8() -> Self {
+        Self {
+            mode: ClockDirectionMode::Dir8,
+        }
+    }
+
+    pub const fn mode(self) -> ClockDirectionMode {
+        self.mode
+    }
+
+    pub const fn direction_count(self) -> u8 {
+        match self.mode {
+            ClockDirectionMode::Dir4 => 4,
+            ClockDirectionMode::Dir8 => 8,
+        }
+    }
+
+    pub const fn rotation_step_degrees(self) -> f32 {
+        match self.mode {
+            ClockDirectionMode::Dir4 => 90.0,
+            ClockDirectionMode::Dir8 => 45.0,
+        }
+    }
+
+    pub fn launch_direction(self, direction_index: u8) -> Vec2 {
+        const D: f32 = std::f32::consts::FRAC_1_SQRT_2;
+
+        match self.mode {
+            ClockDirectionMode::Dir4 => match direction_index % 4 {
+                0 => Vec2::new(0.0, 1.0),
+                1 => Vec2::new(1.0, 0.0),
+                2 => Vec2::new(0.0, -1.0),
+                3 => Vec2::new(-1.0, 0.0),
+                _ => unreachable!(),
+            },
+            ClockDirectionMode::Dir8 => match direction_index % 8 {
+                0 => Vec2::new(0.0, 1.0),
+                1 => Vec2::new(D, D),
+                2 => Vec2::new(1.0, 0.0),
+                3 => Vec2::new(D, -D),
+                4 => Vec2::new(0.0, -1.0),
+                5 => Vec2::new(-D, -D),
+                6 => Vec2::new(-1.0, 0.0),
+                7 => Vec2::new(-D, D),
+                _ => unreachable!(),
+            },
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct ClockSelection {
+    source: Entity,
+    direction_index: u8,
+    elapsed_seconds: f32,
+}
+
+impl ClockSelection {
+    pub const fn new(source: Entity) -> Self {
+        Self {
+            source,
+            direction_index: 0,
+            elapsed_seconds: 0.0,
+        }
+    }
+
+    pub const fn source(self) -> Entity {
+        self.source
+    }
+
+    pub const fn direction_index(self) -> u8 {
+        self.direction_index
+    }
+
+    pub const fn elapsed_seconds(self) -> f32 {
+        self.elapsed_seconds
+    }
+
+    pub fn advance(&mut self, delta_seconds: f32, clock: ClockBlock) -> u32 {
+        const TIME_EPSILON_SECONDS: f32 = 0.000_001;
+
+        self.elapsed_seconds += delta_seconds.max(0.0);
+
+        let mut rotations = 0;
+
+        while self.elapsed_seconds + TIME_EPSILON_SECONDS >= ClockBlock::ROTATE_INTERVAL_SECONDS {
+            self.elapsed_seconds =
+                (self.elapsed_seconds - ClockBlock::ROTATE_INTERVAL_SECONDS).max(0.0);
+
+            self.direction_index = (self.direction_index + 1) % clock.direction_count();
+
+            rotations += 1;
+        }
+
+        rotations
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClockLaunchGuard {
+    source: Entity,
+}
+
+impl ClockLaunchGuard {
+    pub const fn new(source: Entity) -> Self {
+        Self { source }
+    }
+
+    pub const fn source(self) -> Entity {
+        self.source
+    }
+}
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 struct ClockArrowVisual {

@@ -1,33 +1,21 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         GameplayPhysicsPlugin, GridIndex, MapBoundary, MapBoundaryPlugin, MapSpawnPlugin,
         PHYSICS_HZ, PlayRestartPlugin, PlaySession, PlaySessionPlugin, PlaySessionState,
         RestartPlayWorld, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
-
 const BOUNDARY_MAP: &str = include_str!("../assets/maps/phase4_jump_boundary_sandbox.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(BOUNDARY_MAP).expect("boundary map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("boundary map must validate")
-}
 
 fn app_with_boundaries() -> App {
     let mut app = App::new();
@@ -46,7 +34,7 @@ fn app_with_boundaries() -> App {
     app.init_resource::<Assets<GizmoAsset>>();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(BOUNDARY_MAP)));
 
     app.finish();
     app.cleanup();

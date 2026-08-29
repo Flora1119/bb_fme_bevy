@@ -1,27 +1,15 @@
+mod common;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         GridIndex, MapCamera, MapPresentationPlugin, MapSpawnPlugin, PlayerCameraPlugin,
         SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::prelude::*;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
+use common::load_validated_map;
 
 const CAMERA_MAP: &str = include_str!("../assets/maps/phase4_camera_follow_sandbox.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(CAMERA_MAP).expect("camera map fixture must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("camera fixture must validate")
-}
 
 fn app_with_camera_follow_map() -> App {
     let mut app = App::new();
@@ -29,7 +17,7 @@ fn app_with_camera_follow_map() -> App {
     app.add_plugins((MapSpawnPlugin, MapPresentationPlugin, PlayerCameraPlugin));
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(CAMERA_MAP)));
 
     app.update();
 

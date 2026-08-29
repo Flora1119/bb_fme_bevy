@@ -1,30 +1,19 @@
+mod common;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
     domain::{CardinalDirection, GridPosition, ValidatedMap},
     gameplay::{
         ActivePlayWorld, BlockFacing, BlockIdentity, BlockOptions, CollectibleStar,
         CurrentGridPosition, DeadlySpike, GridIndex, MapSpawnPlugin, OriginGridPosition, PlayWorld,
         PlayerBall, RuntimeBlock, SolidBlock, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::prelude::*;
+use common::load_validated_map;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(MINIMAL_MAP).expect("map fixture must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("fixture must validate")
-}
-
 fn app_with_spawned_map() -> (App, ValidatedMap) {
-    let map = load_validated_map();
+    let map = load_validated_map(MINIMAL_MAP);
     let mut app = App::new();
 
     app.add_plugins(MapSpawnPlugin);

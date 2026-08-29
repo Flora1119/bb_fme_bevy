@@ -1,33 +1,20 @@
+mod common;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         CollectibleStar, DeadlySpike, GameplayPhysicsPlugin, GridIndex, JumpBlock, MapSpawnPlugin,
         PHYSICS_HZ, PendingPlayInteractions, PlayInteraction, PlayRestartPlugin, PlaySession,
         PlaySessionPlugin, PlaySessionState, PlayerBall, RestartPlayWorld, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
-
 const UNITY_PLAYTHROUGH_MAP: &str = include_str!("../assets/maps/phase4_playthrough.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument = serde_json::from_str(UNITY_PLAYTHROUGH_MAP)
-        .expect("Unity playthrough fixture must deserialize");
-
-    ValidatedMap::from_document(&document, &config)
-        .expect("Unity playthrough fixture must validate")
-}
 
 fn app_with_vertical_slice() -> App {
     let mut app = App::new();
@@ -48,7 +35,7 @@ fn app_with_vertical_slice() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(UNITY_PLAYTHROUGH_MAP)));
 
     app.update();
 

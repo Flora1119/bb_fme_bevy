@@ -1,22 +1,21 @@
+mod common;
+
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{CardinalDirection, GridPosition, ValidatedMap},
+    domain::{CardinalDirection, GridPosition},
     gameplay::{
         BlockFacing, BlockIdentity, ConsumedFunctionBlock, GameplayPhysicsPlugin, GridIndex,
         MapSpawnPlugin, OneShotFunctionBlock, PHYSICS_HZ, PLAYER_GRAVITY_SCALE, PlayRestartPlugin,
         PlaySessionPlugin, PlayerControlPlugin, RestartPlayWorld, SpawnValidatedMap, StraightBlock,
         StraightMovement,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
-
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 
 const STRAIGHT_MAP: &str = include_str!("../assets/maps/phase5a_func_straight.json");
 
@@ -153,16 +152,6 @@ const CASES: [(&str, i32, CardinalDirection, Vec2, f32, bool); 16] = [
 
 const X_BY_DIRECTION: [i32; 4] = [6, 10, 14, 18];
 
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(STRAIGHT_MAP).expect("straight map must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("straight map must validate")
-}
-
 fn app_with_straight_map() -> App {
     let mut app = App::new();
 
@@ -183,7 +172,7 @@ fn app_with_straight_map() -> App {
     app.cleanup();
 
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(STRAIGHT_MAP)));
 
     app.update();
     app.update();
@@ -256,7 +245,7 @@ fn wait_for_straight_launch(app: &mut App, player: Entity) {
 
 #[test]
 fn development_map_contains_all_four_straight_profiles_in_all_directions() {
-    let map = load_validated_map();
+    let map = load_validated_map(STRAIGHT_MAP);
 
     assert_eq!(map.blocks.len(), 21);
 

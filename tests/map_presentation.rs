@@ -1,35 +1,24 @@
+mod common;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         GridIndex, MIN_VIEW_HEIGHT, MIN_VIEW_WIDTH, MapCamera, MapPresentationPlugin,
         MapSpawnPlugin, PLAYER_COLOR, PLAYER_VISUAL_SIZE, PLAYER_VISUAL_Z, PlaceholderVisual,
         SOLID_COLOR, SOLID_VISUAL_SIZE, SPIKE_COLOR, SPIKE_VISUAL_SIZE, STAR_COLOR,
         STAR_VISUAL_SIZE, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{camera::ScalingMode, prelude::*};
+use common::load_validated_map;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(MINIMAL_MAP).expect("map fixture must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("fixture must validate")
-}
 
 fn app_with_presented_map() -> App {
     let mut app = App::new();
 
     app.add_plugins((MapSpawnPlugin, MapPresentationPlugin));
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(MINIMAL_MAP)));
     app.update();
 
     app

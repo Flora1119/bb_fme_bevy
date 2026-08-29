@@ -1,22 +1,21 @@
+mod common;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
-    block::BlockAssetConfig,
-    domain::{GridPosition, ValidatedMap},
+    domain::GridPosition,
     gameplay::{
         BlockPhysicsBody, GameplayPhysicsPlugin, GridIndex, MIN_WALL_BOUNCE_SPEED, MapSpawnPlugin,
         PHYSICS_HZ, PLAYER_HORIZONTAL_ACCELERATION, PLAYER_HORIZONTAL_DECELERATION,
         PLAYER_MAX_HORIZONTAL_SPEED, PlaySessionPlugin, PlayerControlPlugin, PlayerInputIntent,
         SOLID_COLLIDER_SIZE, SolidBlock, SpawnValidatedMap,
     },
-    map::MapDocument,
 };
 use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
+use common::load_validated_map;
 use std::time::Duration;
 
-const BLOCK_CONFIG: &str = include_str!("../assets/config/block_assets_config.json");
 const MINIMAL_MAP: &str = include_str!("../assets/maps/synthetic_minimal_map.json");
 
 const PLAYER_START_X: f32 = 2.0;
@@ -24,16 +23,6 @@ const WALL_DISTANCE_FROM_PLAYER: f32 = 1.0;
 const WALL_LAUNCH_SPEED: f32 = 5.0;
 const OBSERVATION_TICKS: usize = 10;
 const VELOCITY_TOLERANCE: f32 = 0.06;
-
-fn load_validated_map() -> ValidatedMap {
-    let config: BlockAssetConfig =
-        serde_json::from_str(BLOCK_CONFIG).expect("block config must deserialize");
-
-    let document: MapDocument =
-        serde_json::from_str(MINIMAL_MAP).expect("map fixture must deserialize");
-
-    ValidatedMap::from_document(&document, &config).expect("fixture must validate")
-}
 
 fn app_with_player_control() -> App {
     let mut app = App::new();
@@ -49,7 +38,7 @@ fn app_with_player_control() -> App {
     ));
     app.init_resource::<Assets<GizmoAsset>>();
     app.world_mut()
-        .write_message(SpawnValidatedMap(load_validated_map()));
+        .write_message(SpawnValidatedMap(load_validated_map(MINIMAL_MAP)));
 
     app.finish();
     app.cleanup();
