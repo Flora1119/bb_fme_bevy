@@ -1,7 +1,7 @@
 use super::{
     ClockBlock, CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall,
     SolidBlock, StraightBlock, TeleportEntrance, TeleportExit, TransparentStar,
-    spike_has_solid_collider,
+    ability_item_for_id, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -155,6 +155,12 @@ fn spawn_requested_map(
                 }
             }
             _ => {}
+        }
+
+        if block.category == BlockCategory::Item {
+            if let Some(ability_item) = ability_item_for_id(block.id.as_str()) {
+                entity_commands.insert(ability_item);
+            }
         }
 
         match block.id.as_str() {

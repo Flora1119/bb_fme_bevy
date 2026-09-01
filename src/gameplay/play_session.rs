@@ -1,4 +1,7 @@
-use super::{ActivePlayWorld, CollectedStar, CollectibleStar, PlayWorld};
+use super::{
+    AbilityInventory, AbilityItem, AbilityItemEffect, ActivePlayWorld, CollectedAbilityItem,
+    CollectedStar, CollectibleStar, PlayWorld,
+};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 
@@ -240,6 +243,8 @@ fn resolve_pending_play_interactions(
     active_play_world: Option<Res<ActivePlayWorld>>,
     play_worlds: Query<&PlayWorld>,
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
+    ability_items: Query<&AbilityItem, Without<CollectedAbilityItem>>,
+    mut ability_inventory: Option<ResMut<AbilityInventory>>,
 ) {
     let mut interactions = std::mem::take(&mut pending.interactions);
 
@@ -274,27 +279,47 @@ fn resolve_pending_play_interactions(
             }
 
             PlayInteraction::Collection { source } => {
-                if !collectible_stars.contains(source) {
+                // 1. 별 획득
+                if collectible_stars.contains(source) {
+                    session.collect_star();
+
+                    commands.entity(source).insert((
+                        CollectedStar,
+                        Visibility::Hidden,
+                        ColliderDisabled,
+                    ));
+
+                    if required_stars
+                        .is_some_and(|required_stars| session.collected_stars() >= required_stars)
+                    {
+                        session.mark_cleared();
+
+                        break;
+                    }
+
                     continue;
                 }
 
-                session.collect_star();
+                // 2. 능력 아이템 획득
+                let Ok(item) = ability_items.get(source) else {
+                    continue;
+                };
+
+                let AbilityItemEffect::Queue(ability) = item.effect() else {
+                    continue;
+                };
+
+                let Some(inventory) = ability_inventory.as_mut() else {
+                    continue;
+                };
+
+                inventory.enqueue(ability);
 
                 commands.entity(source).insert((
-                    CollectedStar,
+                    CollectedAbilityItem,
                     Visibility::Hidden,
                     ColliderDisabled,
                 ));
-
-                if required_stars
-                    .is_some_and(|required_stars| session.collected_stars() >= required_stars)
-                {
-                    session.mark_cleared();
-
-                    // 마지막 별을 먹은 순간 이번 플레이는 종료됩니다.
-                    // 같은 틱의 후속 게임 규칙도 실행하지 않습니다.
-                    break;
-                }
             }
 
             PlayInteraction::Switch { .. } => {
