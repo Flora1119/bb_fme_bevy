@@ -1,7 +1,11 @@
+use super::{AbilityInventory, AbilityUseDirection, AbilityUseIntent};
+use crate::gameplay::{PlaySession, PlayerBall, PlayerInputIntent};
+use bevy::prelude::*;
+
 pub const ABILITY_DOUBLE_TAP_WINDOW_SECONDS: f32 = 0.3;
 
 #[derive(Resource, Debug, Default)]
-struct AbilityDoubleTapState {
+pub(super) struct AbilityDoubleTapState {
     last_direction: Option<AbilityUseDirection>,
     elapsed_seconds: f32,
 }
@@ -43,7 +47,7 @@ impl AbilityDoubleTapState {
     }
 }
 
-fn capture_ability_use_input(
+pub(super) fn capture_ability_use_input(
     session: Res<PlaySession>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,

@@ -1,11 +1,4 @@
-use super::{
-    BLOCK_WORLD_SIZE, JumpBlock, MapSpawnSet, PendingPlayInteractions, PlayInteraction,
-    PlayInteractionCollectSet, PlayInteractionSet, PlaySession, PlayerBall, PlayerControlInputSet,
-    PlayerInputIntent, SpawnValidatedMap, StraightBlock, StraightMomentum, StraightMovement,
-};
-use avian2d::prelude::*;
 use bevy::prelude::*;
-use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlayerAbility {
@@ -52,7 +45,7 @@ impl AbilityUseDirection {
         }
     }
 
-    fn from_horizontal(horizontal: f32) -> Option<Self> {
+    pub(super) fn from_horizontal(horizontal: f32) -> Option<Self> {
         if horizontal < 0.0 {
             Some(Self::Left)
         } else if horizontal > 0.0 {

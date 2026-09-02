@@ -1,3 +1,7 @@
+use super::PlayerAbility;
+use bevy::prelude::*;
+use std::collections::VecDeque;
+
 #[derive(Resource, Debug, Default)]
 pub struct AbilityInventory {
     queue: VecDeque<PlayerAbility>,
