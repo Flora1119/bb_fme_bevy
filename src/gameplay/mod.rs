@@ -1,3 +1,4 @@
+mod ability;
 mod block_role;
 mod block_visual;
 mod camera_follow;
@@ -21,6 +22,7 @@ mod static_block;
 mod straight_block;
 mod teleport_block;
 
+pub use ability::*;
 pub use block_role::*;
 pub use block_visual::*;
 pub use camera_follow::*;
