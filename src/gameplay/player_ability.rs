@@ -7,10 +7,6 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use std::collections::VecDeque;
 
-pub const ABILITY_ITEM_SENSOR_RADIUS: f32 = 0.4 * BLOCK_WORLD_SIZE;
-
-const ABILITY_ITEM_SENSOR_COLOR: Color = Color::srgb(0.25, 0.85, 1.0);
-
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerAbilityInputSet;
 

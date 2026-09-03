@@ -1,3 +1,14 @@
+use super::{AbilityItem, AbilityItemEffect, GravityScaleAdjustment, PlayerAbility};
+
+use crate::gameplay::{BLOCK_WORLD_SIZE, PendingPlayInteractions, PlayInteraction, PlayerBall};
+
+use avian2d::prelude::*;
+use bevy::prelude::*;
+
+pub const ABILITY_ITEM_SENSOR_RADIUS: f32 = 0.4 * BLOCK_WORLD_SIZE;
+
+const ABILITY_ITEM_SENSOR_COLOR: Color = Color::srgb(0.25, 0.85, 1.0);
+
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AbilityItemSensorCollider;
 
@@ -25,7 +36,7 @@ pub fn ability_item_for_id(block_id: &str) -> Option<AbilityItem> {
     Some(AbilityItem::new(effect))
 }
 
-fn attach_ability_item_sensors(
+pub(super) fn attach_ability_item_sensors(
     mut commands: Commands,
     items: Query<
         (Entity, &AbilityItem),
@@ -54,7 +65,7 @@ fn attach_ability_item_sensors(
     }
 }
 
-fn collect_started_ability_item_interactions(
+pub(super) fn collect_started_ability_item_interactions(
     mut collision_starts: MessageReader<CollisionStart>,
     players: Query<(), With<PlayerBall>>,
     items: Query<
