@@ -1,8 +1,31 @@
 use super::{AbilityInventory, AbilityUseDirection, AbilityUseIntent};
-use crate::gameplay::{PlaySession, PlayerBall, PlayerInputIntent};
+use crate::gameplay::{PlaySession, PlayerBall, PlayerInputIntent, SpawnValidatedMap};
 use bevy::prelude::*;
 
 pub const ABILITY_DOUBLE_TAP_WINDOW_SECONDS: f32 = 0.3;
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) struct PlayerAbilityInputSet;
+
+pub(super) fn attach_ability_use_intent(
+    mut commands: Commands,
+    players: Query<Entity, (With<PlayerBall>, Without<AbilityUseIntent>)>,
+) {
+    for player in &players {
+        commands.entity(player).insert(AbilityUseIntent::default());
+    }
+}
+
+pub(super) fn reset_ability_state_for_spawn(
+    mut spawn_requests: MessageReader<SpawnValidatedMap>,
+    mut inventory: ResMut<AbilityInventory>,
+    mut double_tap: ResMut<AbilityDoubleTapState>,
+) {
+    if spawn_requests.read().next().is_some() {
+        inventory.clear();
+        double_tap.clear();
+    }
+}
 
 #[derive(Resource, Debug, Default)]
 pub(super) struct AbilityDoubleTapState {

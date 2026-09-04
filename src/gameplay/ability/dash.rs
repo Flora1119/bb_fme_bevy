@@ -1,3 +1,8 @@
+use super::AbilityUseDirection;
+use crate::gameplay::{PlaySession, PlayerBall};
+use avian2d::prelude::LinearVelocity;
+use bevy::prelude::*;
+
 pub const ITEM_DASH_SPEED: f32 = 15.0;
 pub const ITEM_DASH_DURATION_SECONDS: f32 = 0.15;
 pub const ITEM_DASH_JUMP_BOOST: f32 = 3.0;
@@ -54,7 +59,7 @@ fn dash_ability_velocity(current: Vec2, direction: AbilityUseDirection) -> Vec2 
     )
 }
 
-fn try_start_dash(
+pub(super) fn try_start_dash(
     dash_state: &mut PlayerDashState,
     velocity: &mut LinearVelocity,
     direction: AbilityUseDirection,
@@ -70,7 +75,11 @@ fn try_start_dash(
     true
 }
 
-fn advance_player_dash_state(
+fn cancelled_dash_velocity(current: Vec2) -> Vec2 {
+    Vec2::new(current.x * 0.5, current.y)
+}
+
+pub(super) fn advance_player_dash_state(
     time: Res<Time>,
     mut players: Query<&mut PlayerDashState, With<PlayerBall>>,
 ) {
@@ -81,7 +90,7 @@ fn advance_player_dash_state(
     }
 }
 
-fn cancel_active_dash_on_press(
+pub(super) fn cancel_active_dash_on_press(
     session: Res<PlaySession>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut players: Query<(&mut PlayerDashState, &mut LinearVelocity), With<PlayerBall>>,
@@ -107,5 +116,14 @@ fn cancel_active_dash_on_press(
         dash_state.cancel();
 
         velocity.0 = cancelled_dash_velocity(velocity.0);
+    }
+}
+
+pub(super) fn attach_player_dash_state(
+    mut commands: Commands,
+    players: Query<Entity, (With<PlayerBall>, Without<PlayerDashState>)>,
+) {
+    for player in &players {
+        commands.entity(player).insert(PlayerDashState::default());
     }
 }
