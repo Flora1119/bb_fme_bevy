@@ -1,9 +1,11 @@
 mod dash;
+mod gravity;
 mod input;
 mod inventory;
 mod item_collection;
 mod jump;
 mod straight;
+mod teleport;
 mod types;
 mod use_queued;
 
@@ -11,8 +13,10 @@ use super::{MapSpawnSet, PlayInteractionCollectSet, PlayInteractionSet, PlayerCo
 use avian2d::prelude::PhysicsSchedule;
 use bevy::prelude::*;
 
+pub use gravity::*;
 pub use inventory::*;
 pub use item_collection::*;
+pub use teleport::*;
 pub use types::*;
 
 pub struct PlayerAbilityPlugin;
@@ -20,6 +24,8 @@ pub struct PlayerAbilityPlugin;
 impl Plugin for PlayerAbilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AbilityInventory>()
+            .init_resource::<TeleportCheckpoint>()
+            .init_resource::<PlayerGravityState>()
             .init_resource::<input::AbilityDoubleTapState>()
             .add_systems(
                 Update,

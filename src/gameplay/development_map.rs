@@ -4,7 +4,8 @@ use bevy::prelude::*;
 
 const BLOCK_CONFIG: &str = include_str!("../../assets/config/block_assets_config.json");
 
-const DEVELOPMENT_MAP: &str = include_str!("../../assets/maps/phase5a_func_teleport_sandbox.json");
+const DEVELOPMENT_MAP: &str =
+    include_str!("../../assets/maps/phase5b_ability_teleport_sandbox.json");
 
 pub struct DevelopmentMapPlugin;
 

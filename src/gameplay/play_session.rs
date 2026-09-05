@@ -1,6 +1,7 @@
 use super::{
     AbilityInventory, AbilityItem, AbilityItemEffect, ActivePlayWorld, CollectedAbilityItem,
-    CollectedStar, CollectibleStar, PlayWorld,
+    CollectedStar, CollectibleStar, CurrentGridPosition, PlayWorld, PlayerAbility, PlayerBall,
+    PlayerGravityState, TeleportCheckpoint,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -243,8 +244,11 @@ fn resolve_pending_play_interactions(
     active_play_world: Option<Res<ActivePlayWorld>>,
     play_worlds: Query<&PlayWorld>,
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
-    ability_items: Query<&AbilityItem, Without<CollectedAbilityItem>>,
+    ability_items: Query<(&AbilityItem, &CurrentGridPosition), Without<CollectedAbilityItem>>,
+    mut gravity_state: Option<ResMut<PlayerGravityState>>,
+    mut player_gravity_scales: Query<&mut GravityScale, With<PlayerBall>>,
     mut ability_inventory: Option<ResMut<AbilityInventory>>,
+    mut teleport_checkpoint: Option<ResMut<TeleportCheckpoint>>,
 ) {
     let mut interactions = std::mem::take(&mut pending.interactions);
 
@@ -301,19 +305,42 @@ fn resolve_pending_play_interactions(
                 }
 
                 // 2. 능력 아이템 획득
-                let Ok(item) = ability_items.get(source) else {
+                let Ok((item, item_position)) = ability_items.get(source) else {
                     continue;
                 };
 
-                let AbilityItemEffect::Queue(ability) = item.effect() else {
-                    continue;
-                };
+                match item.effect() {
+                    AbilityItemEffect::Queue(ability) => {
+                        if ability == PlayerAbility::Teleport {
+                            if let Some(checkpoint) = teleport_checkpoint.as_mut() {
+                                checkpoint.activate(item_position.0);
+                            }
+                        }
 
-                let Some(inventory) = ability_inventory.as_mut() else {
-                    continue;
-                };
+                        let Some(inventory) = ability_inventory.as_mut() else {
+                            continue;
+                        };
 
-                inventory.enqueue(ability);
+                        inventory.enqueue(ability);
+                    }
+
+                    AbilityItemEffect::AdjustGravityScale(adjustment) => {
+                        let Some(state) = gravity_state.as_mut() else {
+                            continue;
+                        };
+
+                        state.adjust_scale(adjustment);
+
+                        for mut gravity_scale in &mut player_gravity_scales {
+                            gravity_scale.0 = state.scale();
+                        }
+                    }
+
+                    AbilityItemEffect::SetInvisible(_) => {
+                        // 5-B-1.8.3에서 구현.
+                        continue;
+                    }
+                }
 
                 commands.entity(source).insert((
                     CollectedAbilityItem,
@@ -438,5 +465,45 @@ mod tests {
         session.advance_time(1.0);
 
         assert!((session.elapsed_seconds() - 0.25).abs() <= f32::EPSILON);
+    }
+
+    #[test]
+    fn collecting_teleport_item_activates_checkpoint_at_item_position() {
+        use crate::domain::GridPosition;
+
+        let mut app = App::new();
+
+        app.insert_resource(PlaySession::default())
+            .insert_resource(PendingPlayInteractions::default())
+            .insert_resource(AbilityInventory::default())
+            .insert_resource(TeleportCheckpoint::default())
+            .add_message::<ResolvedMovementInteraction>()
+            .add_systems(Update, resolve_pending_play_interactions);
+
+        let item_position = GridPosition::new(7, -3);
+
+        let item = app
+            .world_mut()
+            .spawn((
+                AbilityItem::new(AbilityItemEffect::Queue(PlayerAbility::Teleport)),
+                CurrentGridPosition(item_position),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<PendingPlayInteractions>()
+            .push(PlayInteraction::collection(item));
+
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<TeleportCheckpoint>().position(),
+            Some(item_position),
+        );
+
+        assert_eq!(
+            app.world().resource::<AbilityInventory>().current(),
+            Some(PlayerAbility::Teleport),
+        );
     }
 }

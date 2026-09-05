@@ -46,15 +46,7 @@ pub(super) fn attach_ability_item_sensors(
         ),
     >,
 ) {
-    for (entity, item) in &items {
-        // 이번 단계에서는 Queue형 아이템만 실제 획득 가능합니다.
-        //
-        // i_on / i_off / i_gup / i_gdown은
-        // 5-B-1.8에서 즉시 적용형으로 구현합니다.
-        if !matches!(item.effect(), AbilityItemEffect::Queue(_)) {
-            continue;
-        }
-
+    for (entity, _) in &items {
         commands.entity(entity).insert((
             AbilityItemSensorCollider,
             Sensor,

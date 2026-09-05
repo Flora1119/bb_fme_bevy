@@ -1,0 +1,24 @@
+5-B-1 공통 기반 + 단순 능력
+
+5-B-1.1  AbilityItem 역할/맵 매핑
+        ↓
+5-B-1.2  Sensor + Collection + FIFO Inventory
+        ↓
+5-B-1.3  더블 입력 / AbilityUseIntent
+        ↓
+5-B-1.4  Jump
+        ↓
+5-B-1.5  Dash
+        ↓
+5-B-1.6  Straight
+        ↓
+5-B-1.7  Teleport
+        ↓
+5-B-1.8  Gravity / Invisible 즉시형
+        ↓
+5-B-1.9  Restart + 조합 회귀 테스트
+
+5-B-2 Wall
+5-B-3 Circle / Aim 기반
+5-B-4 Clone + BallActor 구조
+5-B-5 Swing

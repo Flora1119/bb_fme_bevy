@@ -1,5 +1,9 @@
 use super::{AbilityInventory, AbilityUseDirection, AbilityUseIntent};
-use crate::gameplay::{PlaySession, PlayerBall, PlayerInputIntent, SpawnValidatedMap};
+use crate::gameplay::{
+    PlaySession, PlayerBall, PlayerGravityState, PlayerInputIntent, SpawnValidatedMap,
+    WORLD_GRAVITY,
+};
+use avian2d::prelude::Gravity;
 use bevy::prelude::*;
 
 pub const ABILITY_DOUBLE_TAP_WINDOW_SECONDS: f32 = 0.3;
@@ -20,10 +24,15 @@ pub(super) fn reset_ability_state_for_spawn(
     mut spawn_requests: MessageReader<SpawnValidatedMap>,
     mut inventory: ResMut<AbilityInventory>,
     mut double_tap: ResMut<AbilityDoubleTapState>,
+    mut gravity_state: ResMut<PlayerGravityState>,
+    mut world_gravity: ResMut<Gravity>,
 ) {
     if spawn_requests.read().next().is_some() {
         inventory.clear();
         double_tap.clear();
+
+        gravity_state.reset();
+        world_gravity.0 = WORLD_GRAVITY;
     }
 }
 
