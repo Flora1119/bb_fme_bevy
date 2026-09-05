@@ -1,7 +1,7 @@
 use super::{
     AbilityInventory, AbilityItem, AbilityItemEffect, ActivePlayWorld, CollectedAbilityItem,
     CollectedStar, CollectibleStar, CurrentGridPosition, PlayWorld, PlayerAbility, PlayerBall,
-    PlayerGravityState, TeleportCheckpoint,
+    PlayerGravityState, PlayerVisibilityState, TeleportCheckpoint,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -246,6 +246,7 @@ fn resolve_pending_play_interactions(
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
     ability_items: Query<(&AbilityItem, &CurrentGridPosition), Without<CollectedAbilityItem>>,
     mut gravity_state: Option<ResMut<PlayerGravityState>>,
+    mut visibility_state: Option<ResMut<PlayerVisibilityState>>,
     mut player_gravity_scales: Query<&mut GravityScale, With<PlayerBall>>,
     mut ability_inventory: Option<ResMut<AbilityInventory>>,
     mut teleport_checkpoint: Option<ResMut<TeleportCheckpoint>>,
@@ -285,6 +286,12 @@ fn resolve_pending_play_interactions(
             PlayInteraction::Collection { source } => {
                 // 1. 별 획득
                 if collectible_stars.contains(source) {
+                    if visibility_state
+                        .as_ref()
+                        .is_some_and(|state| state.is_invisible())
+                    {
+                        continue;
+                    }
                     session.collect_star();
 
                     commands.entity(source).insert((
@@ -336,9 +343,12 @@ fn resolve_pending_play_interactions(
                         }
                     }
 
-                    AbilityItemEffect::SetInvisible(_) => {
-                        // 5-B-1.8.3에서 구현.
-                        continue;
+                    AbilityItemEffect::SetInvisible(invisible) => {
+                        let Some(state) = visibility_state.as_mut() else {
+                            continue;
+                        };
+
+                        state.set_invisible(invisible);
                     }
                 }
 
@@ -505,5 +515,91 @@ mod tests {
             app.world().resource::<AbilityInventory>().current(),
             Some(PlayerAbility::Teleport),
         );
+    }
+
+    #[test]
+    fn invisible_player_ignores_star_until_visibility_is_restored() {
+        let mut app = App::new();
+
+        app.init_resource::<PlaySession>()
+            .init_resource::<PendingPlayInteractions>()
+            .init_resource::<AbilityInventory>()
+            .init_resource::<PlayerVisibilityState>()
+            .add_message::<ResolvedMovementInteraction>()
+            .add_systems(Update, resolve_pending_play_interactions);
+
+        let invisible_item = app
+            .world_mut()
+            .spawn((
+                AbilityItem::new(AbilityItemEffect::SetInvisible(true)),
+                CurrentGridPosition(crate::domain::GridPosition::new(3, 1)),
+            ))
+            .id();
+
+        let visible_item = app
+            .world_mut()
+            .spawn((
+                AbilityItem::new(AbilityItemEffect::SetInvisible(false)),
+                CurrentGridPosition(crate::domain::GridPosition::new(5, 1)),
+            ))
+            .id();
+
+        let star = app.world_mut().spawn(CollectibleStar).id();
+
+        // i_off 획득 → Invisible ON.
+        app.world_mut()
+            .resource_mut::<PendingPlayInteractions>()
+            .push(PlayInteraction::collection(invisible_item));
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<PlayerVisibilityState>()
+                .is_invisible()
+        );
+
+        assert!(
+            app.world()
+                .get::<CollectedAbilityItem>(invisible_item)
+                .is_some()
+        );
+
+        assert!(app.world().resource::<AbilityInventory>().is_empty());
+
+        // Invisible 상태에서는 별을 먹지 못함.
+        app.world_mut()
+            .resource_mut::<PendingPlayInteractions>()
+            .push(PlayInteraction::collection(star));
+
+        app.update();
+
+        assert_eq!(app.world().resource::<PlaySession>().collected_stars(), 0);
+
+        assert!(app.world().get::<CollectedStar>(star).is_none());
+
+        // i_on 획득 → Invisible OFF.
+        app.world_mut()
+            .resource_mut::<PendingPlayInteractions>()
+            .push(PlayInteraction::collection(visible_item));
+
+        app.update();
+
+        assert!(
+            !app.world()
+                .resource::<PlayerVisibilityState>()
+                .is_invisible()
+        );
+
+        // 다시 Visible 상태가 되면 같은 별을 획득 가능.
+        app.world_mut()
+            .resource_mut::<PendingPlayInteractions>()
+            .push(PlayInteraction::collection(star));
+
+        app.update();
+
+        assert_eq!(app.world().resource::<PlaySession>().collected_stars(), 1);
+
+        assert!(app.world().get::<CollectedStar>(star).is_some());
     }
 }

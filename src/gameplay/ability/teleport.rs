@@ -15,6 +15,10 @@ impl TeleportCheckpoint {
     pub fn activate(&mut self, position: GridPosition) {
         self.position = Some(position);
     }
+
+    pub(super) fn clear(&mut self) {
+        self.position = None;
+    }
 }
 
 pub(super) fn teleport_player_to_checkpoint(

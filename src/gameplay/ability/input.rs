@@ -1,7 +1,7 @@
 use super::{AbilityInventory, AbilityUseDirection, AbilityUseIntent};
 use crate::gameplay::{
-    PlaySession, PlayerBall, PlayerGravityState, PlayerInputIntent, SpawnValidatedMap,
-    WORLD_GRAVITY,
+    PlaySession, PlayerBall, PlayerGravityState, PlayerInputIntent, PlayerVisibilityState,
+    SpawnValidatedMap, TeleportCheckpoint, WORLD_GRAVITY,
 };
 use avian2d::prelude::Gravity;
 use bevy::prelude::*;
@@ -26,13 +26,19 @@ pub(super) fn reset_ability_state_for_spawn(
     mut double_tap: ResMut<AbilityDoubleTapState>,
     mut gravity_state: ResMut<PlayerGravityState>,
     mut world_gravity: ResMut<Gravity>,
+    mut visibility_state: ResMut<PlayerVisibilityState>,
+    mut teleport_checkpoint: ResMut<TeleportCheckpoint>,
 ) {
     if spawn_requests.read().next().is_some() {
         inventory.clear();
         double_tap.clear();
 
+        teleport_checkpoint.clear();
+
         gravity_state.reset();
         world_gravity.0 = WORLD_GRAVITY;
+
+        visibility_state.reset();
     }
 }
 

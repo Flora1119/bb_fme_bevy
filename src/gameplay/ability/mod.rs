@@ -8,6 +8,7 @@ mod straight;
 mod teleport;
 mod types;
 mod use_queued;
+mod visibility;
 
 use super::{MapSpawnSet, PlayInteractionCollectSet, PlayInteractionSet, PlayerControlInputSet};
 use avian2d::prelude::PhysicsSchedule;
@@ -18,6 +19,7 @@ pub use inventory::*;
 pub use item_collection::*;
 pub use teleport::*;
 pub use types::*;
+pub use visibility::*;
 
 pub struct PlayerAbilityPlugin;
 
@@ -26,6 +28,7 @@ impl Plugin for PlayerAbilityPlugin {
         app.init_resource::<AbilityInventory>()
             .init_resource::<TeleportCheckpoint>()
             .init_resource::<PlayerGravityState>()
+            .init_resource::<PlayerVisibilityState>()
             .init_resource::<input::AbilityDoubleTapState>()
             .add_systems(
                 Update,
@@ -34,6 +37,7 @@ impl Plugin for PlayerAbilityPlugin {
                     input::attach_ability_use_intent,
                     dash::attach_player_dash_state,
                     item_collection::attach_ability_item_sensors,
+                    visibility::sync_player_visibility_visual,
                 )
                     .after(MapSpawnSet),
             )
