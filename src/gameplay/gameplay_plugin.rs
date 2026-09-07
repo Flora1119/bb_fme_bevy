@@ -1,7 +1,7 @@
 use super::{
     ClockBlockPlugin, GameplayPhysicsPlugin, MapBoundaryPlugin, MapSpawnPlugin, PlayRestartPlugin,
     PlaySessionPlugin, PlayerAbilityPlugin, PlayerControlPlugin, SpikeDeathPlugin,
-    StarCollectionPlugin, TeleportBlockPlugin,
+    StarCollectionPlugin, SwitchBlockPlugin, TeleportBlockPlugin,
 };
 use bevy::prelude::*;
 
@@ -19,6 +19,7 @@ impl Plugin for GameplayPlugin {
             SpikeDeathPlugin,
             ClockBlockPlugin,
             TeleportBlockPlugin,
+            SwitchBlockPlugin,
             PlayerAbilityPlugin,
             PlayerControlPlugin,
         ));

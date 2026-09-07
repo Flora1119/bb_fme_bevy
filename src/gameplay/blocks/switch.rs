@@ -1,4 +1,7 @@
-use crate::domain::InitialSwitchState;
+use crate::{
+    domain::InitialSwitchState,
+    gameplay::{MapSpawnSet, PlayWorld},
+};
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -6,6 +9,60 @@ pub enum SwitchChannel {
     Electric,
     Block1,
     Block2,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SwitchTrigger {
+    channel: SwitchChannel,
+}
+
+impl SwitchTrigger {
+    pub const fn new(channel: SwitchChannel) -> Self {
+        Self { channel }
+    }
+
+    pub const fn electric() -> Self {
+        Self::new(SwitchChannel::Electric)
+    }
+
+    pub const fn block_1() -> Self {
+        Self::new(SwitchChannel::Block1)
+    }
+
+    pub const fn block_2() -> Self {
+        Self::new(SwitchChannel::Block2)
+    }
+
+    pub const fn channel(&self) -> SwitchChannel {
+        self.channel
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SwitchControlledBlock {
+    channel: SwitchChannel,
+}
+
+impl SwitchControlledBlock {
+    pub const fn new(channel: SwitchChannel) -> Self {
+        Self { channel }
+    }
+
+    pub const fn electric() -> Self {
+        Self::new(SwitchChannel::Electric)
+    }
+
+    pub const fn block_1() -> Self {
+        Self::new(SwitchChannel::Block1)
+    }
+
+    pub const fn block_2() -> Self {
+        Self::new(SwitchChannel::Block2)
+    }
+
+    pub const fn channel(&self) -> SwitchChannel {
+        self.channel
+    }
 }
 
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +116,28 @@ impl SwitchState {
 
         next
     }
+}
+
+pub struct SwitchBlockPlugin;
+
+impl Plugin for SwitchBlockPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SwitchState>().add_systems(
+            Update,
+            initialize_switch_state_from_play_world.after(MapSpawnSet),
+        );
+    }
+}
+
+fn initialize_switch_state_from_play_world(
+    play_worlds: Query<&PlayWorld, Added<PlayWorld>>,
+    mut switch_state: ResMut<SwitchState>,
+) {
+    let Some(play_world) = play_worlds.iter().last() else {
+        return;
+    };
+
+    *switch_state = SwitchState::from(play_world.definition().settings.initial_switches);
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use super::{
     ClockBlock, CollectibleStar, DeadlySpike, JumpBlock, OneShotFunctionBlock, PlayerBall,
-    SolidBlock, StraightBlock, TeleportEntrance, TeleportExit, TransparentStar,
-    ability_item_for_id, spike_has_solid_collider,
+    SolidBlock, StraightBlock, SwitchControlledBlock, SwitchTrigger, TeleportEntrance,
+    TeleportExit, TransparentStar, ability_item_for_id, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -234,6 +234,22 @@ fn spawn_requested_map(
 
             "fb_tp2_out" => {
                 entity_commands.insert(TeleportExit::two());
+            }
+
+            "sw_b1_on" | "sw_b1_off" => {
+                entity_commands.insert((SolidBlock, SwitchTrigger::block_1()));
+            }
+
+            "b1" => {
+                entity_commands.insert((SolidBlock, SwitchControlledBlock::block_1()));
+            }
+
+            "sw_b2_on" | "sw_b2_off" => {
+                entity_commands.insert((SolidBlock, SwitchTrigger::block_2()));
+            }
+
+            "b2" => {
+                entity_commands.insert((SolidBlock, SwitchControlledBlock::block_2()));
             }
 
             _ => {}
