@@ -136,6 +136,8 @@ mod tests {
         app.insert_resource(PlaySession::default())
             .insert_resource(AbilityInventory::default())
             .insert_resource(checkpoint)
+            .insert_resource(Gravity(PlayerGravityState::default().world_gravity()))
+            .init_resource::<PlayerGravityState>()
             .add_systems(Update, apply_queued_ability_use);
 
         app.world_mut()

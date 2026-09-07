@@ -1,4 +1,4 @@
-use super::{
+use crate::gameplay::{
     BLOCK_WORLD_SIZE, BlockOptions, CollectedStar, CollectibleStar, MapSpawnSet,
     PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet, PlayInteractionSet,
     PlayerBall, TransparentStar,

@@ -1,4 +1,4 @@
-use super::map_spawn::BLOCK_WORLD_SIZE;
+use crate::gameplay::BLOCK_WORLD_SIZE;
 use bevy::prelude::Vec2;
 
 #[derive(Debug, Clone, Copy, PartialEq)]

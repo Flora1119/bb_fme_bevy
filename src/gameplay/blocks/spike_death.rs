@@ -1,4 +1,4 @@
-use super::{
+use crate::gameplay::{
     DeadlySpike, PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet,
     PlayInteractionSet, PlayerBall, SpikeSensorCollider,
 };
