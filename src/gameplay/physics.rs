@@ -1,12 +1,13 @@
 use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, ClockBlock, ConsumedFunctionBlock, CurrentGridPosition,
-    DeadlySpike, JumpBlock, MapSpawnSet, OneShotFunctionBlock, PlayInteractionSet, PlaySession,
-    PlayerBall, SolidBlock, StraightBlock, StraightMomentum, StraightMovement, TeleportEntrance,
+    DeadlySpike, JumpBlock, MapSpawnSet, OneShotFunctionBlock, PendingPlayInteractions,
+    PlayInteraction, PlayInteractionSet, PlaySession, PlayerBall, SolidBlock, StraightBlock,
+    StraightMomentum, StraightMovement, SwitchTrigger, TeleportEntrance,
     solid_collider_geometry_for, spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub const PHYSICS_HZ: f64 = 50.0;
 pub const WORLD_GRAVITY: Vec2 = Vec2::new(0.0, -9.81);
@@ -67,6 +68,7 @@ impl Plugin for GameplayPhysicsPlugin {
             .insert_resource(Time::<Fixed>::from_hz(PHYSICS_HZ))
             .insert_resource(Gravity(WORLD_GRAVITY))
             .init_resource::<PendingSolidContactResponses>()
+            .init_resource::<ActiveSwitchFloorContacts>()
             .add_systems(
                 Update,
                 (
@@ -113,6 +115,9 @@ pub struct SpikeSensorCollider;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SolidColliderChild;
+
+#[derive(Resource, Debug, Default)]
+struct ActiveSwitchFloorContacts(HashSet<(Entity, Entity)>);
 
 #[derive(Resource, Debug, Default)]
 struct PendingSolidContactResponses(HashMap<Entity, StartedSolidContacts>);
@@ -323,17 +328,22 @@ fn collect_solid_contacts(
     players: Query<&LinearVelocity, With<PlayerBall>>,
     solids: Query<(), (With<SolidBlock>, Without<ConsumedFunctionBlock>)>,
     spike_sensors: Query<(), With<SpikeSensorCollider>>,
+    switch_triggers: Query<(), With<SwitchTrigger>>,
     jump_blocks: Query<&JumpBlock>,
     straight_blocks: Query<(&StraightBlock, &CurrentGridPosition)>,
     mut pending: ResMut<PendingSolidContactResponses>,
+    mut active_switch_contacts: ResMut<ActiveSwitchFloorContacts>,
+    mut play_interactions: Option<ResMut<PendingPlayInteractions>>,
 ) {
     // 이번 물리 틱의 현재 접촉 상태를 새로 수집합니다.
     pending.0.clear();
+    let mut current_switch_contacts = HashSet::new();
 
     let gravity_direction = gravity.0.normalize_or_zero();
     let bounce_direction = -gravity_direction;
 
     if gravity_direction == Vec2::ZERO {
+        active_switch_contacts.0.clear();
         return;
     }
 
@@ -421,6 +431,10 @@ fn collect_solid_contacts(
             // 1. 45도 이하: 바닥
             if contact_floor_alignment >= floor_threshold {
                 started_contacts.floor = true;
+
+                if switch_triggers.contains(solid) {
+                    current_switch_contacts.insert((player, solid));
+                }
 
                 if let Ok((straight_block, grid_position)) = straight_blocks.get(solid) {
                     let grid = grid_position.0;
@@ -511,6 +525,14 @@ fn collect_solid_contacts(
             }
         }
     }
+
+    if let Some(play_interactions) = play_interactions.as_mut() {
+        for &(_, switch) in current_switch_contacts.difference(&active_switch_contacts.0) {
+            play_interactions.push(PlayInteraction::switch(switch));
+        }
+    }
+
+    active_switch_contacts.0 = current_switch_contacts;
 }
 
 fn apply_solid_contact_response(

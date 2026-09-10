@@ -1,4 +1,4 @@
-mod common;
+use crate::common::load_validated_map;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::GridPosition,
@@ -17,10 +17,9 @@ use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
-use common::load_validated_map;
 use std::time::Duration;
 
-const STRAIGHT_MAP: &str = include_str!("../assets/maps/phase5a_func_straight2.json");
+const STRAIGHT_MAP: &str = include_str!("../../assets/maps/phase5a_func_straight2.json");
 
 fn app_with_straight_blocks() -> App {
     let mut app = App::new();

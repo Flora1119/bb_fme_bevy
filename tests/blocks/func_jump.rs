@@ -1,4 +1,4 @@
-mod common;
+use crate::common::load_validated_map;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::GridPosition,
@@ -11,10 +11,9 @@ use bevy::{
     asset::Assets, gizmos::GizmoAsset, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
-use common::load_validated_map;
 use std::time::Duration;
 
-const JUMP_MAP: &str = include_str!("../assets/maps/phase4_jump_boundary_sandbox.json");
+const JUMP_MAP: &str = include_str!("../../assets/maps/phase4_jump_boundary_sandbox.json");
 
 fn app_with_jump_map() -> App {
     let mut app = App::new();

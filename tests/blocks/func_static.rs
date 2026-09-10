@@ -1,4 +1,4 @@
-mod common;
+use crate::common::load_validated_map;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::GridPosition,
@@ -12,10 +12,9 @@ use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
-use common::load_validated_map;
 use std::time::Duration;
 
-const FUNC_MAP: &str = include_str!("../assets/maps/phase5a_func_static.json");
+const FUNC_MAP: &str = include_str!("../../assets/maps/phase5a_func_static.json");
 
 fn app_with_func_map() -> App {
     let mut app = App::new();

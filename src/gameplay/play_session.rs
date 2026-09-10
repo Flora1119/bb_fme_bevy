@@ -1,7 +1,7 @@
 use super::{
     AbilityInventory, AbilityItem, AbilityItemEffect, ActivePlayWorld, CollectedAbilityItem,
     CollectedStar, CollectibleStar, CurrentGridPosition, PlayWorld, PlayerAbility, PlayerBall,
-    PlayerGravityState, PlayerVisibilityState, TeleportCheckpoint,
+    PlayerGravityState, PlayerVisibilityState, SwitchState, SwitchTrigger, TeleportCheckpoint,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -245,6 +245,8 @@ fn resolve_pending_play_interactions(
     play_worlds: Query<&PlayWorld>,
     collectible_stars: Query<(), (With<CollectibleStar>, Without<CollectedStar>)>,
     ability_items: Query<(&AbilityItem, &CurrentGridPosition), Without<CollectedAbilityItem>>,
+    switch_triggers: Query<&SwitchTrigger>,
+    mut switch_state: Option<ResMut<SwitchState>>,
     mut gravity_state: Option<ResMut<PlayerGravityState>>,
     mut visibility_state: Option<ResMut<PlayerVisibilityState>>,
     mut player_gravity_scales: Query<&mut GravityScale, With<PlayerBall>>,
@@ -359,8 +361,16 @@ fn resolve_pending_play_interactions(
                 ));
             }
 
-            PlayInteraction::Switch { .. } => {
-                // Phase 5 이후 스위치 규칙이 이 위치에 연결됩니다.
+            PlayInteraction::Switch { source } => {
+                let Ok(trigger) = switch_triggers.get(source) else {
+                    continue;
+                };
+
+                let Some(state) = switch_state.as_mut() else {
+                    continue;
+                };
+
+                state.toggle(trigger.channel());
             }
         }
     }

@@ -1,5 +1,4 @@
-mod common;
-
+use crate::common::load_validated_map;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::{CardinalDirection, GridPosition},
@@ -14,10 +13,9 @@ use bevy::{
     asset::Assets, gizmos::GizmoAsset, input::InputPlugin, prelude::*, time::TimeUpdateStrategy,
     transform::TransformPlugin,
 };
-use common::load_validated_map;
 use std::time::Duration;
 
-const STRAIGHT_MAP: &str = include_str!("../assets/maps/phase5a_func_straight.json");
+const STRAIGHT_MAP: &str = include_str!("../../assets/maps/phase5a_func_straight.json");
 
 const CASES: [(&str, i32, CardinalDirection, Vec2, f32, bool); 16] = [
     (

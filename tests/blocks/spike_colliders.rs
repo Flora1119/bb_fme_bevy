@@ -1,4 +1,4 @@
-mod common;
+use crate::common::load_validated_map;
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::GridPosition,
@@ -8,7 +8,6 @@ use bb_fme_bevy::{
     },
 };
 use bevy::{asset::Assets, gizmos::GizmoAsset, prelude::*, transform::TransformPlugin};
-use common::load_validated_map;
 
 const SPIKE_MAP: &str = r#"
 {
