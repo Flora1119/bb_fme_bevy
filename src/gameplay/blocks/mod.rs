@@ -1,3 +1,4 @@
+mod change;
 mod clock;
 mod jump;
 mod spike;
@@ -9,6 +10,7 @@ mod straight;
 mod switch;
 mod teleport;
 
+pub use change::*;
 pub use clock::*;
 pub use jump::*;
 pub use spike::*;

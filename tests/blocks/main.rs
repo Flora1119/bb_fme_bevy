@@ -1,6 +1,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod change_block;
 mod electric_switch;
 mod func_jump;
 mod func_static;

@@ -45,7 +45,7 @@
 		},
 		{
 			"x": 4,
-			"y": 1,
+			"y": 2,
 			"block": {
 				"type": "whiteblock",
 				"name": "wb_star_sw",
@@ -54,7 +54,7 @@
 		},
 		{
 			"x": 6,
-			"y": 1,
+			"y": 2,
 			"block": {
 				"type": "item",
 				"name": "star_empty",
@@ -62,8 +62,8 @@
 			}
 		},
 		{
-			"x": 5,
-			"y": 1,
+			"x": 8,
+			"y": 2,
 			"block": {
 				"type": "whiteblock",
 				"name": "wb_star_sw",

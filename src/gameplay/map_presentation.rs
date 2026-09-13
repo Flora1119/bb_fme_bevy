@@ -13,6 +13,7 @@ pub const SOLID_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
 pub const SPIKE_VISUAL_SIZE: Vec2 = Vec2::splat(0.90 * BLOCK_WORLD_SIZE);
 pub const JUMP_BLOCK_VISUAL_SIZE: Vec2 = Vec2::splat(0.96 * BLOCK_WORLD_SIZE);
 
+pub const BACKGROUND_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
 pub const PLAYER_COLOR: Color = Color::srgb(0.15, 0.80, 1.00);
 pub const STAR_COLOR: Color = Color::srgb(1.00, 0.82, 0.12);
 pub const SOLID_COLOR: Color = Color::srgb(0.30, 0.36, 0.46);
@@ -25,7 +26,7 @@ pub struct MapPresentationPlugin;
 
 impl Plugin for MapPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ClearColor(Color::srgb(0.4, 0.4, 0.4)))
+        app.insert_resource(ClearColor(BACKGROUND_COLOR))
             .add_systems(Startup, spawn_map_camera)
             .add_systems(
                 Update,

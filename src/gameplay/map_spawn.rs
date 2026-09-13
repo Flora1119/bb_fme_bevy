@@ -1,5 +1,5 @@
 use super::{
-    ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock, JumpBlock,
+    ChangeBlock, ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock, JumpBlock,
     OneShotFunctionBlock, PlayerBall, SolidBlock, StarSwitchTrigger, StraightBlock,
     SwitchControlledBlock, SwitchTrigger, TeleportEntrance, TeleportExit, TransparentStar,
     ability_item_for_id, spike_has_solid_collider,
@@ -274,6 +274,10 @@ fn spawn_requested_map(
 
             "wb_star_sw" => {
                 entity_commands.insert(StarSwitchTrigger);
+            }
+
+            "wb_change" => {
+                entity_commands.insert(ChangeBlock::default());
             }
 
             _ => {}
