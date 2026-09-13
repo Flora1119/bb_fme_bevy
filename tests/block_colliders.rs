@@ -1,4 +1,5 @@
 mod common;
+
 use avian2d::prelude::*;
 use bb_fme_bevy::{
     domain::GridPosition,

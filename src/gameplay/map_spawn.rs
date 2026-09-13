@@ -1,8 +1,8 @@
 use super::{
     ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock, JumpBlock,
-    OneShotFunctionBlock, PlayerBall, SolidBlock, StraightBlock, SwitchControlledBlock,
-    SwitchTrigger, TeleportEntrance, TeleportExit, TransparentStar, ability_item_for_id,
-    spike_has_solid_collider,
+    OneShotFunctionBlock, PlayerBall, SolidBlock, StarSwitchTrigger, StraightBlock,
+    SwitchControlledBlock, SwitchTrigger, TeleportEntrance, TeleportExit, TransparentStar,
+    ability_item_for_id, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -270,6 +270,10 @@ fn spawn_requested_map(
 
             "b2" => {
                 entity_commands.insert((SolidBlock, SwitchControlledBlock::block_2()));
+            }
+
+            "wb_star_sw" => {
+                entity_commands.insert(StarSwitchTrigger);
             }
 
             _ => {}

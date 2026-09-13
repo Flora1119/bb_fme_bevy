@@ -10,6 +10,7 @@ mod func_teleport;
 mod spike_colliders;
 mod spikes;
 mod star_collection;
+mod star_switch;
 mod stars;
 mod static_block_colliders;
 mod static_blocks;
