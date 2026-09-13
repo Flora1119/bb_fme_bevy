@@ -1,12 +1,24 @@
 use crate::{
-    domain::InitialSwitchState,
-    gameplay::{BlockVisualSet, MapSpawnSet, PhysicsInitializationSet, PlayWorld},
+    domain::{CardinalDirection, GridPosition, InitialSwitchState},
+    gameplay::{
+        BLOCK_WORLD_SIZE, BlockFacing, BlockVisualSet, MapSpawnSet, OriginGridPosition,
+        PhysicsInitializationSet, PlayWorld,
+    },
 };
-use avian2d::prelude::ColliderDisabled;
+use avian2d::prelude::{ColliderDisabled, Position};
 use bevy::prelude::*;
 
 const SWITCH_CONTROLLED_BLOCK_ENABLED_ALPHA: f32 = 1.0;
 const SWITCH_CONTROLLED_BLOCK_DISABLED_ALPHA: f32 = 0.5;
+
+const ELECTRIC_DOOR_MOVE_DURATION_SECONDS: f32 = 0.3;
+
+#[derive(Component, Debug, Clone, Copy)]
+struct ElectricDoorMotion {
+    start: Vec2,
+    target: Vec2,
+    elapsed_seconds: f32,
+}
 
 fn switch_trigger_visual_paths(channel: SwitchChannel) -> Option<(&'static str, &'static str)> {
     match channel {
@@ -19,9 +31,39 @@ fn switch_trigger_visual_paths(channel: SwitchChannel) -> Option<(&'static str, 
             "sprites/switch/sw_b2_off.png",
         )),
 
-        // 5-C-2에서 추가
-        SwitchChannel::Electric => None,
+        SwitchChannel::Electric => Some((
+            "sprites/switch/sw_el_on.png",
+            "sprites/switch/sw_el_off.png",
+        )),
     }
+}
+
+fn electric_controlled_visual_paths(
+    block: ElectricControlledBlock,
+) -> (&'static str, &'static str) {
+    match block {
+        ElectricControlledBlock::Hazard => ("sprites/switch/el.png", "sprites/switch/el_off.png"),
+        ElectricControlledBlock::Door => ("sprites/switch/el_b.png", "sprites/switch/el_b_off.png"),
+    }
+}
+
+fn electric_door_target_grid_position(
+    origin: GridPosition,
+    direction: CardinalDirection,
+    is_on: bool,
+) -> GridPosition {
+    if is_on {
+        origin
+    } else {
+        origin.offset(direction.opposite())
+    }
+}
+
+fn grid_position_to_world(position: GridPosition) -> Vec2 {
+    Vec2::new(
+        position.x as f32 * BLOCK_WORLD_SIZE,
+        position.y as f32 * BLOCK_WORLD_SIZE,
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,6 +131,18 @@ impl SwitchControlledBlock {
     pub const fn channel(&self) -> SwitchChannel {
         self.channel
     }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElectricControlledBlock {
+    Hazard,
+    Door,
+}
+
+#[derive(Component, Debug, Clone)]
+struct ElectricControlledVisualHandles {
+    on: Handle<Image>,
+    off: Handle<Image>,
 }
 
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,6 +213,10 @@ impl Plugin for SwitchBlockPlugin {
             )
             .add_systems(
                 Update,
+                prepare_electric_controlled_visual_handles.after(MapSpawnSet),
+            )
+            .add_systems(
+                Update,
                 sync_block_switch_collision_state
                     .after(initialize_switch_state_from_play_world)
                     .after(PhysicsInitializationSet),
@@ -175,6 +233,23 @@ impl Plugin for SwitchBlockPlugin {
                     .after(prepare_switch_trigger_visual_handles)
                     .after(sync_block_switch_visual_state)
                     .after(BlockVisualSet),
+            )
+            .add_systems(
+                Update,
+                sync_electric_controlled_visual_state
+                    .after(prepare_electric_controlled_visual_handles)
+                    .after(sync_block_switch_trigger_visual_state)
+                    .after(BlockVisualSet),
+            )
+            .add_systems(
+                Update,
+                begin_electric_door_motion
+                    .after(initialize_switch_state_from_play_world)
+                    .after(PhysicsInitializationSet),
+            )
+            .add_systems(
+                Update,
+                animate_electric_door_motion.after(begin_electric_door_motion),
             );
     }
 }
@@ -207,19 +282,48 @@ fn prepare_switch_trigger_visual_handles(
     }
 }
 
+fn prepare_electric_controlled_visual_handles(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    blocks: Query<(Entity, &ElectricControlledBlock), Without<ElectricControlledVisualHandles>>,
+) {
+    for (entity, block) in &blocks {
+        let (on_path, off_path) = electric_controlled_visual_paths(*block);
+
+        commands
+            .entity(entity)
+            .insert(ElectricControlledVisualHandles {
+                on: asset_server.load(on_path),
+                off: asset_server.load(off_path),
+            });
+    }
+}
+
 fn sync_block_switch_collision_state(
     mut commands: Commands,
     switch_state: Res<SwitchState>,
-    controlled_blocks: Query<(Entity, &SwitchControlledBlock)>,
+    controlled_blocks: Query<(
+        Entity,
+        &SwitchControlledBlock,
+        Option<&ElectricControlledBlock>,
+    )>,
 ) {
     if !switch_state.is_changed() {
         return;
     }
 
-    for (entity, controlled_block) in &controlled_blocks {
+    for (entity, controlled_block, electric_block) in &controlled_blocks {
         let channel = controlled_block.channel();
 
-        if !matches!(channel, SwitchChannel::Block1 | SwitchChannel::Block2) {
+        let controls_collision = match channel {
+            SwitchChannel::Block1 | SwitchChannel::Block2 => true,
+
+            SwitchChannel::Electric => {
+                electric_block.is_some_and(|block| *block == ElectricControlledBlock::Hazard)
+            }
+        };
+
+        if !controls_collision {
             continue;
         }
 
@@ -277,6 +381,101 @@ fn sync_block_switch_trigger_visual_state(
     }
 }
 
+fn sync_electric_controlled_visual_state(
+    switch_state: Res<SwitchState>,
+    mut blocks: Query<(&ElectricControlledVisualHandles, &mut Sprite)>,
+) {
+    if !switch_state.is_changed() {
+        return;
+    }
+
+    let is_on = switch_state.is_on(SwitchChannel::Electric);
+
+    for (visuals, mut sprite) in &mut blocks {
+        let target = match is_on {
+            true => &visuals.on,
+            false => &visuals.off,
+        };
+
+        if sprite.image != *target {
+            sprite.image = target.clone();
+        }
+    }
+}
+
+fn begin_electric_door_motion(
+    mut commands: Commands,
+    switch_state: Res<SwitchState>,
+    doors: Query<(
+        Entity,
+        &ElectricControlledBlock,
+        &OriginGridPosition,
+        &BlockFacing,
+        &Position,
+    )>,
+) {
+    if !switch_state.is_changed() {
+        return;
+    }
+
+    let is_on = switch_state.is_on(SwitchChannel::Electric);
+
+    for (entity, electric_block, origin, facing, position) in &doors {
+        if *electric_block != ElectricControlledBlock::Door {
+            continue;
+        }
+
+        let target_grid = electric_door_target_grid_position(origin.0, facing.0, is_on);
+
+        let target = grid_position_to_world(target_grid);
+        let start = position.0;
+
+        if start.distance_squared(target) <= f32::EPSILON {
+            commands.entity(entity).remove::<ElectricDoorMotion>();
+
+            continue;
+        }
+
+        commands.entity(entity).insert(ElectricDoorMotion {
+            start,
+            target,
+            elapsed_seconds: 0.0,
+        });
+    }
+}
+
+fn animate_electric_door_motion(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut doors: Query<(
+        Entity,
+        &mut ElectricDoorMotion,
+        &mut Position,
+        &mut Transform,
+    )>,
+) {
+    for (entity, mut motion, mut position, mut transform) in &mut doors {
+        motion.elapsed_seconds += time.delta_secs();
+
+        let progress =
+            (motion.elapsed_seconds / ELECTRIC_DOOR_MOVE_DURATION_SECONDS).clamp(0.0, 1.0);
+
+        let next = motion.start.lerp(motion.target, progress);
+
+        position.0 = next;
+        transform.translation.x = next.x;
+        transform.translation.y = next.y;
+
+        if progress >= 1.0 {
+            position.0 = motion.target;
+            transform.translation.x = motion.target.x;
+            transform.translation.y = motion.target.y;
+
+            commands.entity(entity).remove::<ElectricDoorMotion>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,7 +498,13 @@ mod tests {
             )),
         );
 
-        assert_eq!(switch_trigger_visual_paths(SwitchChannel::Electric), None,);
+        assert_eq!(
+            switch_trigger_visual_paths(SwitchChannel::Electric),
+            Some((
+                "sprites/switch/sw_el_on.png",
+                "sprites/switch/sw_el_off.png",
+            )),
+        );
     }
 
     #[test]
@@ -373,6 +578,83 @@ mod tests {
         assert_eq!(
             app.world().get::<Sprite>(block_2).unwrap().color,
             Color::srgba(1.0, 1.0, 1.0, 1.0),
+        );
+    }
+
+    #[test]
+    fn electric_off_disables_hazard_but_not_door_collision() {
+        let mut app = App::new();
+
+        app.insert_resource(SwitchState::from(InitialSwitchState {
+            electric: false,
+            block_1: true,
+            block_2: true,
+        }))
+        .add_systems(Update, sync_block_switch_collision_state);
+
+        let hazard = app
+            .world_mut()
+            .spawn((
+                SwitchControlledBlock::electric(),
+                ElectricControlledBlock::Hazard,
+            ))
+            .id();
+
+        let door = app
+            .world_mut()
+            .spawn((
+                SwitchControlledBlock::electric(),
+                ElectricControlledBlock::Door,
+            ))
+            .id();
+
+        app.update();
+
+        assert!(app.world().get::<ColliderDisabled>(hazard).is_some());
+
+        assert!(app.world().get::<ColliderDisabled>(door).is_none());
+    }
+
+    #[test]
+    fn electric_controlled_visual_paths_match_block_types() {
+        assert_eq!(
+            electric_controlled_visual_paths(ElectricControlledBlock::Hazard,),
+            ("sprites/switch/el.png", "sprites/switch/el_off.png",),
+        );
+
+        assert_eq!(
+            electric_controlled_visual_paths(ElectricControlledBlock::Door,),
+            ("sprites/switch/el_b.png", "sprites/switch/el_b_off.png",),
+        );
+    }
+
+    #[test]
+    fn electric_door_moves_opposite_its_facing_when_off() {
+        let origin = GridPosition::new(10, 10);
+
+        assert_eq!(
+            electric_door_target_grid_position(origin, CardinalDirection::Up, false,),
+            GridPosition::new(10, 9),
+        );
+
+        assert_eq!(
+            electric_door_target_grid_position(origin, CardinalDirection::Right, false,),
+            GridPosition::new(9, 10),
+        );
+
+        assert_eq!(
+            electric_door_target_grid_position(origin, CardinalDirection::Down, false,),
+            GridPosition::new(10, 11),
+        );
+
+        assert_eq!(
+            electric_door_target_grid_position(origin, CardinalDirection::Left, false,),
+            GridPosition::new(11, 10),
+        );
+
+        assert_eq!(
+            electric_door_target_grid_position(origin, CardinalDirection::Down, true,),
+            origin,
         );
     }
 }

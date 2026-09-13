@@ -1,6 +1,6 @@
 use crate::gameplay::{
-    DeadlySpike, PendingPlayInteractions, PlayInteraction, PlayInteractionCollectSet,
-    PlayInteractionSet, PlayerBall, SpikeSensorCollider,
+    DeadlySpike, ElectricControlledBlock, PendingPlayInteractions, PlayInteraction,
+    PlayInteractionCollectSet, PlayInteractionSet, PlayerBall, SpikeSensorCollider,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -11,7 +11,10 @@ impl Plugin for SpikeDeathPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PhysicsSchedule,
-            collect_started_spike_interactions
+            (
+                collect_started_spike_interactions,
+                collect_started_electric_hazard_interactions,
+            )
                 .in_set(PlayInteractionSet::Collect)
                 .in_set(PlayInteractionCollectSet::Death),
         );
@@ -46,5 +49,34 @@ fn collect_started_spike_interactions(
         }
 
         pending.push(PlayInteraction::death(spike));
+    }
+}
+
+fn collect_started_electric_hazard_interactions(
+    mut collision_starts: MessageReader<CollisionStart>,
+    players: Query<(), With<PlayerBall>>,
+    electric_blocks: Query<&ElectricControlledBlock>,
+    mut pending: ResMut<PendingPlayInteractions>,
+) {
+    for event in collision_starts.read() {
+        let hazard = if players.contains(event.collider1)
+            && electric_blocks.contains(event.collider2)
+        {
+            event.collider2
+        } else if players.contains(event.collider2) && electric_blocks.contains(event.collider1) {
+            event.collider1
+        } else {
+            continue;
+        };
+
+        let Ok(electric_block) = electric_blocks.get(hazard) else {
+            continue;
+        };
+
+        if *electric_block != ElectricControlledBlock::Hazard {
+            continue;
+        }
+
+        pending.push(PlayInteraction::death(hazard));
     }
 }

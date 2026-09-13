@@ -1,8 +1,8 @@
 use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, ClockBlock, ConsumedFunctionBlock, CurrentGridPosition,
-    DeadlySpike, JumpBlock, MapSpawnSet, OneShotFunctionBlock, PendingPlayInteractions,
-    PlayInteraction, PlayInteractionSet, PlaySession, PlayerBall, SolidBlock, StraightBlock,
-    StraightMomentum, StraightMovement, SwitchTrigger, TeleportEntrance,
+    DeadlySpike, ElectricControlledBlock, JumpBlock, MapSpawnSet, OneShotFunctionBlock,
+    PendingPlayInteractions, PlayInteraction, PlayInteractionSet, PlaySession, PlayerBall,
+    SolidBlock, StraightBlock, StraightMomentum, StraightMovement, SwitchTrigger, TeleportEntrance,
     solid_collider_geometry_for, spike_collider_profile_for,
 };
 use avian2d::prelude::*;
@@ -33,12 +33,14 @@ pub const SPIKE_SENSOR_SIZE: Vec2 = Vec2::splat(0.5 * BLOCK_WORLD_SIZE);
 pub const SPIKE_SENSOR_OFFSET: Vec2 = Vec2::new(0.0, -0.25 * BLOCK_WORLD_SIZE);
 pub const CLOCK_SENSOR_SIZE: f32 = 0.9 * BLOCK_WORLD_SIZE;
 pub const TELEPORT_SENSOR_SIZE: f32 = 0.9 * BLOCK_WORLD_SIZE;
+pub const ELECTRIC_HAZARD_SENSOR_SIZE: f32 = 0.35 * BLOCK_WORLD_SIZE;
 
 const CLOCK_SENSOR_COLOR: Color = Color::srgb(1.00, 0.75, 0.20);
 const PLAYER_COLLIDER_COLOR: Color = Color::srgb(0.15, 0.80, 1.00);
 const SOLID_COLLIDER_COLOR: Color = Color::srgb(0.20, 1.00, 0.35);
 const SPIKE_SENSOR_COLOR: Color = Color::srgb(1.00, 0.15, 0.15);
 const TELEPORT_SENSOR_COLOR: Color = Color::srgb(0.80, 0.25, 1.00);
+const ELECTRIC_HAZARD_SENSOR_COLOR: Color = Color::srgb(0.20, 0.80, 1.00);
 
 pub const FLOOR_CONTACT_ANGLE_DEGREES: f32 = 45.0;
 pub const PRESS_LOCKED_STRAIGHT_WALL_BOUNCE_SPEED: f32 = 3.0;
@@ -77,6 +79,7 @@ impl Plugin for GameplayPhysicsPlugin {
                     attach_spike_colliders,
                     attach_clock_sensors,
                     attach_teleport_sensors,
+                    attach_electric_hazard_sensors,
                 )
                     .in_set(PhysicsInitializationSet)
                     .after(MapSpawnSet),
@@ -318,6 +321,26 @@ fn attach_teleport_sensors(
             CollisionEventsEnabled,
             Collider::rectangle(TELEPORT_SENSOR_SIZE, TELEPORT_SENSOR_SIZE),
             DebugRender::default().with_collider_color(TELEPORT_SENSOR_COLOR),
+        ));
+    }
+}
+
+fn attach_electric_hazard_sensors(
+    mut commands: Commands,
+    electric_blocks: Query<(Entity, &ElectricControlledBlock), Without<BlockPhysicsBody>>,
+) {
+    for (entity, electric_block) in &electric_blocks {
+        if *electric_block != ElectricControlledBlock::Hazard {
+            continue;
+        }
+
+        commands.entity(entity).insert((
+            BlockPhysicsBody,
+            RigidBody::Static,
+            Sensor,
+            CollisionEventsEnabled,
+            Collider::rectangle(ELECTRIC_HAZARD_SENSOR_SIZE, ELECTRIC_HAZARD_SENSOR_SIZE),
+            DebugRender::default().with_collider_color(ELECTRIC_HAZARD_SENSOR_COLOR),
         ));
     }
 }
