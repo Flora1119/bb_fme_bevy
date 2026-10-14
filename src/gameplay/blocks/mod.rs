@@ -9,6 +9,8 @@ mod static_block;
 mod straight;
 mod switch;
 mod teleport;
+mod transport;
+mod transport_motion;
 
 pub use change::*;
 pub use clock::*;
@@ -21,3 +23,5 @@ pub use static_block::*;
 pub use straight::*;
 pub use switch::*;
 pub use teleport::*;
+pub use transport::*;
+pub use transport_motion::*;

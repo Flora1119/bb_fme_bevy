@@ -58,6 +58,9 @@ impl TeleportExit {
     }
 }
 
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TeleportResolutionSet;
+
 pub struct TeleportBlockPlugin;
 
 impl Plugin for TeleportBlockPlugin {
@@ -71,6 +74,7 @@ impl Plugin for TeleportBlockPlugin {
         .add_systems(
             PhysicsSchedule,
             teleport_resolved_players
+                .in_set(TeleportResolutionSet)
                 .after(SolidContactResponseSet)
                 .before(PhysicsStepSystems::Sleeping),
         )

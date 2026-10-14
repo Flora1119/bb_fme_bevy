@@ -1,9 +1,10 @@
 use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, ClockBlock, ConsumedFunctionBlock, CurrentGridPosition,
     DeadlySpike, ElectricControlledBlock, JumpBlock, MapSpawnSet, OneShotFunctionBlock,
-    PendingPlayInteractions, PlayInteraction, PlayInteractionSet, PlaySession, PlayerBall,
-    SolidBlock, StraightBlock, StraightMomentum, StraightMovement, SwitchTrigger, TeleportEntrance,
-    solid_collider_geometry_for, spike_collider_profile_for,
+    PendingPlayInteractions, PendingTransportSteps, PlayInteraction, PlayInteractionSet,
+    PlaySession, PlayerBall, SolidBlock, StraightBlock, StraightMomentum, StraightMovement,
+    StraightTransportBlock, SwitchTrigger, TeleportEntrance, solid_collider_geometry_for,
+    spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -357,10 +358,16 @@ fn collect_solid_contacts(
     mut pending: ResMut<PendingSolidContactResponses>,
     mut active_switch_contacts: ResMut<ActiveSwitchFloorContacts>,
     mut play_interactions: Option<ResMut<PendingPlayInteractions>>,
+    transport_blocks: Query<(), With<StraightTransportBlock>>,
+    mut transport_steps: Option<ResMut<PendingTransportSteps>>,
 ) {
     // 이번 물리 틱의 현재 접촉 상태를 새로 수집합니다.
     pending.0.clear();
     let mut current_switch_contacts = HashSet::new();
+
+    if let Some(steps) = transport_steps.as_mut() {
+        steps.clear();
+    }
 
     let gravity_direction = gravity.0.normalize_or_zero();
     let bounce_direction = -gravity_direction;
@@ -455,7 +462,7 @@ fn collect_solid_contacts(
             if contact_floor_alignment >= floor_threshold {
                 started_contacts.floor = true;
 
-                if switch_triggers.contains(solid) {
+                if switch_triggers.contains(solid) || transport_blocks.contains(solid) {
                     current_switch_contacts.insert((player, solid));
                 }
 
@@ -549,9 +556,17 @@ fn collect_solid_contacts(
         }
     }
 
-    if let Some(play_interactions) = play_interactions.as_mut() {
-        for &(_, switch) in current_switch_contacts.difference(&active_switch_contacts.0) {
-            play_interactions.push(PlayInteraction::switch(switch));
+    for &(_, solid) in current_switch_contacts.difference(&active_switch_contacts.0) {
+        if switch_triggers.contains(solid) {
+            if let Some(interactions) = play_interactions.as_mut() {
+                interactions.push(PlayInteraction::switch(solid));
+            }
+        }
+
+        if transport_blocks.contains(solid) {
+            if let Some(steps) = transport_steps.as_mut() {
+                steps.push(solid);
+            }
         }
     }
 
