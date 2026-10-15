@@ -2,9 +2,9 @@ use super::{
     BLOCK_WORLD_SIZE, BlockIdentity, ClockBlock, ConsumedFunctionBlock, CurrentGridPosition,
     DeadlySpike, ElectricControlledBlock, JumpBlock, MapSpawnSet, OneShotFunctionBlock,
     PendingPlayInteractions, PendingTransportSteps, PlayInteraction, PlayInteractionSet,
-    PlaySession, PlayerBall, SolidBlock, StraightBlock, StraightMomentum, StraightMovement,
-    StraightTransportBlock, SwitchTrigger, TeleportEntrance, solid_collider_geometry_for,
-    spike_collider_profile_for,
+    PlaySession, PlayerBall, PushPullBlock, SolidBlock, StraightBlock, StraightMomentum,
+    StraightMovement, StraightTransportBlock, SwitchTrigger, TeleportEntrance,
+    solid_collider_geometry_for, spike_collider_profile_for,
 };
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -358,7 +358,7 @@ fn collect_solid_contacts(
     mut pending: ResMut<PendingSolidContactResponses>,
     mut active_switch_contacts: ResMut<ActiveSwitchFloorContacts>,
     mut play_interactions: Option<ResMut<PendingPlayInteractions>>,
-    transport_blocks: Query<(), With<StraightTransportBlock>>,
+    transport_blocks: Query<(), Or<(With<StraightTransportBlock>, With<PushPullBlock>)>>,
     mut transport_steps: Option<ResMut<PendingTransportSteps>>,
 ) {
     // 이번 물리 틱의 현재 접촉 상태를 새로 수집합니다.

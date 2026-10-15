@@ -1,4 +1,5 @@
-use super::{StraightTransportBlock, StraightTransportMode};
+use super::{PushPullBlock, StraightTransportBlock, StraightTransportMode, plan_push_pull};
+use crate::gameplay::RuntimeBlock;
 use crate::{
     domain::{CardinalDirection, GridPosition, GridSize},
     gameplay::{
@@ -41,7 +42,7 @@ impl Plugin for StraightTransportPlugin {
     }
 }
 
-/// 이번 물리 틱에서 새롭게 밟힌 이동 블록입니다.
+/// 이번 물리 틱에서 새롭게 밟힌 이동 또는 밀기·당기기 블록입니다.
 #[derive(Resource, Default)]
 pub struct PendingTransportSteps(HashSet<Entity>);
 
@@ -71,8 +72,9 @@ struct TransportMotion {
 
 fn initialize_transport_runtime(
     mut commands: Commands,
-    blocks: Query<Entity, (With<StraightTransportBlock>, Without<TransportRuntime>)>,
+    blocks: Query<Entity, (With<RuntimeBlock>, Without<TransportRuntime>)>,
 ) {
+    // 밀기·당기기의 대상도 동일한 이동 상태를 사용합니다.
     for entity in &blocks {
         commands.entity(entity).insert(TransportRuntime::default());
     }
@@ -104,7 +106,7 @@ fn next_transport_cell(
 fn animate_straight_transports(
     time: Res<Time<Physics>>,
     session: Res<PlaySession>,
-    mut blocks: Query<(&mut TransportRuntime, &mut Position, &mut Transform)>,
+    mut blocks: Query<(&mut TransportRuntime, Option<&mut Position>, &mut Transform)>,
 ) {
     if !session.is_playing() {
         return;
@@ -112,7 +114,7 @@ fn animate_straight_transports(
 
     let dt = time.delta_secs();
 
-    for (mut runtime, mut position, mut transform) in &mut blocks {
+    for (mut runtime, position, mut transform) in &mut blocks {
         runtime.wait_seconds = (runtime.wait_seconds - dt).max(0.0);
 
         let Some(mut motion) = runtime.motion.take() else {
@@ -127,13 +129,17 @@ fn animate_straight_transports(
         let next = if progress >= 1.0 {
             motion.target
         } else {
-            // Unity와 같은 EaseOutSine 보간입니다.
             let eased = (progress * std::f32::consts::FRAC_PI_2).sin();
 
             motion.start.lerp(motion.target, eased)
         };
 
-        position.0 = next;
+        // 물리 바디가 있는 대상은 물리 위치도 함께 갱신합니다.
+        if let Some(mut position) = position {
+            position.0 = next;
+        }
+
+        // 포탈 출구처럼 Position이 없는 대상도 이동할 수 있습니다.
         transform.translation.x = next.x;
         transform.translation.y = next.y;
 
@@ -150,20 +156,22 @@ fn begin_transport_steps(
     mut pending: ResMut<PendingTransportSteps>,
     mut resolved_movements: MessageReader<ResolvedMovementInteraction>,
     mut index: ResMut<GridIndex>,
-    mut blocks: Query<(
-        Entity,
-        &StraightTransportBlock,
-        &BlockFacing,
-        &mut CurrentGridPosition,
-        &mut TransportRuntime,
-        &Position,
-    )>,
+    mut blocks: Query<
+        (
+            Entity,
+            Option<&StraightTransportBlock>,
+            Option<&PushPullBlock>,
+            &BlockFacing,
+            &mut CurrentGridPosition,
+            &mut TransportRuntime,
+            Option<&Position>,
+            &Transform,
+        ),
+        With<RuntimeBlock>,
+    >,
 ) {
-    // 매 틱 소비하여 이전 접촉 요청이 나중에 재발동하지 않게 합니다.
+    // 처리할 수 없는 상태여도 요청은 소비합니다.
     let stepped = std::mem::take(&mut pending.0);
-
-    // 포탈/텔레포트로 이동했다면 이전 위치의 밟기 요청은 무효입니다.
-    // 이미 진행 중이던 연속 이동은 계속 처리합니다.
     let player_was_relocated = resolved_movements.read().count() > 0;
 
     if !session.is_playing() {
@@ -180,19 +188,79 @@ fn begin_transport_steps(
 
     let size = play_world.definition().settings.size;
 
-    // 여러 블록이 같은 목적지를 노려도 처리 순서를 일정하게 합니다.
-    let mut entities: Vec<Entity> = blocks.iter().map(|(entity, ..)| entity).collect();
+    // 이동 블록과 밀기·당기기를 같은 순서 안에서 처리합니다.
+    // 앞선 이동의 점유 변경은 다음 계산에 즉시 반영됩니다.
+    let mut entities: Vec<Entity> = blocks
+        .iter()
+        .filter_map(|(entity, straight, push_pull, ..)| {
+            (straight.is_some() || push_pull.is_some()).then_some(entity)
+        })
+        .collect();
 
     entities.sort_unstable_by_key(|entity| entity.to_bits());
 
     for entity in entities {
-        let Ok((_, block, facing, mut current, mut runtime, position)) = blocks.get_mut(entity)
+        let Ok((_, straight, push_pull, facing, current, ..)) = blocks.get(entity) else {
+            continue;
+        };
+
+        // 대상 블록을 수정하기 전에 발동 블록의 정보만 복사합니다.
+        let straight = straight.copied();
+        let push_pull = push_pull.copied();
+        let direction = facing.0;
+        let actor_grid = current.0;
+        let newly_stepped = !player_was_relocated && stepped.contains(&entity);
+
+        if let Some(block) = push_pull {
+            if !newly_stepped {
+                continue;
+            }
+
+            let Some(plan) = plan_push_pull(block, actor_grid, direction, size, |position| {
+                index.entity_at(position)
+            }) else {
+                continue;
+            };
+
+            let Ok((_, _, _, _, mut target_grid, mut runtime, position, transform)) =
+                blocks.get_mut(plan.target)
+            else {
+                continue;
+            };
+
+            // 계획의 출발점과 대상의 현재 위치가 일치하는지 확인합니다.
+            if target_grid.0 != plan.source {
+                continue;
+            }
+
+            if !index.try_relocate(plan.target, &mut target_grid, plan.destination) {
+                continue;
+            }
+
+            let start = position.map_or(transform.translation.truncate(), |position| position.0);
+
+            // 이전 이동을 교체하고, 현재 실제 위치에서 이동을 시작합니다.
+            runtime.motion = Some(TransportMotion {
+                start,
+                target: transport_world_position(plan.destination),
+                elapsed_seconds: 0.0,
+            });
+
+            // 대상이 연속 이동 블록이어도 남은 횟수와 대기 시간은 유지합니다.
+            continue;
+        }
+
+        let Some(block) = straight else {
+            continue;
+        };
+
+        let Ok((_, _, _, _, mut current, mut runtime, position, transform)) =
+            blocks.get_mut(entity)
         else {
             continue;
         };
 
-        if !player_was_relocated && stepped.contains(&entity) {
-            // 다시 밟으면 Unity처럼 연속 이동을 새로 시작합니다.
+        if newly_stepped {
             runtime.remaining_steps = match block.mode() {
                 StraightTransportMode::OneStep => 1,
                 StraightTransportMode::Continuous => StraightTransportBlock::MAX_CONTINUOUS_STEPS,
@@ -205,20 +273,20 @@ fn begin_transport_steps(
             continue;
         }
 
-        let Some(destination) = next_transport_cell(current.0, facing.0, size) else {
+        let Some(destination) = next_transport_cell(current.0, direction, size) else {
             runtime.remaining_steps = 0;
             continue;
         };
 
         if !index.try_relocate(entity, &mut current, destination) {
-            // 막히면 종료합니다. 길이 열려도 자동 재출발하지 않습니다.
             runtime.remaining_steps = 0;
             continue;
         }
 
+        let start = position.map_or(transform.translation.truncate(), |position| position.0);
+
         runtime.motion = Some(TransportMotion {
-            // 이동 중 다시 발동해도 현재 실제 위치에서 이어갑니다.
-            start: position.0,
+            start,
             target: transport_world_position(destination),
             elapsed_seconds: 0.0,
         });
@@ -412,5 +480,153 @@ mod transport_motion_tests {
             next_transport_cell(GridPosition::new(2, 0), CardinalDirection::Down, size,),
             None,
         );
+    }
+
+    fn push_pull_target(app: &App) -> Entity {
+        // 기존 최소 테스트 맵에 있는 가시를 이동 대상으로 사용합니다.
+        app.world()
+            .resource::<GridIndex>()
+            .entity_at(GridPosition::new(12, 0))
+            .unwrap()
+    }
+
+    #[test]
+    fn push_pull_updates_grid_then_animates_all_four_variants() {
+        for (block_id, destination_x) in [
+            ("tp_push_o", 13),
+            ("tp_push_a", 25),
+            ("tp_pull_o", 11),
+            ("tp_pull_a", 3),
+        ] {
+            let (mut app, owner) = test_app(block_id);
+            let target = push_pull_target(&app);
+            let source = GridPosition::new(12, 0);
+            let destination = GridPosition::new(destination_x, 0);
+
+            app.world_mut()
+                .entity_mut(target)
+                .insert(Position(Vec2::new(12.0, 0.0)));
+
+            step_on(&mut app, owner);
+
+            assert_eq!(grid(&app, owner), GridPosition::new(2, 0));
+            assert_eq!(grid(&app, target), destination);
+
+            let index = app.world().resource::<GridIndex>();
+            assert_eq!(index.entity_at(source), None);
+            assert_eq!(index.entity_at(destination), Some(target));
+
+            // 논리 좌표만 먼저 변경됩니다.
+            assert_eq!(
+                app.world().get::<Position>(target).unwrap().0,
+                Vec2::new(12.0, 0.0),
+            );
+
+            for _ in 0..20 {
+                tick(&mut app);
+            }
+
+            let expected = Vec2::new(destination_x as f32, 0.0);
+
+            assert_eq!(app.world().get::<Position>(target).unwrap().0, expected,);
+            assert_eq!(
+                app.world()
+                    .get::<Transform>(target)
+                    .unwrap()
+                    .translation
+                    .truncate(),
+                expected,
+            );
+            assert_eq!(
+                app.world()
+                    .get::<crate::gameplay::OriginGridPosition>(target)
+                    .unwrap()
+                    .0,
+                source,
+            );
+        }
+    }
+
+    #[test]
+    fn push_pull_moves_targets_without_physics_position() {
+        let (mut app, owner) = test_app("tp_push_o");
+        let target = push_pull_target(&app);
+
+        assert!(app.world().get::<Position>(target).is_none());
+
+        step_on(&mut app, owner);
+
+        for _ in 0..20 {
+            tick(&mut app);
+        }
+
+        assert_eq!(grid(&app, target), GridPosition::new(13, 0));
+        assert_eq!(
+            app.world()
+                .get::<Transform>(target)
+                .unwrap()
+                .translation
+                .truncate(),
+            Vec2::new(13.0, 0.0),
+        );
+        assert!(app.world().get::<Position>(target).is_none());
+    }
+
+    #[test]
+    fn push_pull_retargets_an_active_motion_without_returning_to_old_destination() {
+        let (mut app, owner) = test_app("tp_push_o");
+        let target = push_pull_target(&app);
+
+        app.world_mut().entity_mut(target).insert((
+            StraightTransportBlock::continuous(),
+            BlockFacing(CardinalDirection::Right),
+            Position(Vec2::new(12.0, 0.0)),
+        ));
+
+        // 대상이 스스로 12 -> 13 이동을 시작합니다.
+        step_on(&mut app, target);
+
+        for _ in 0..5 {
+            tick(&mut app);
+        }
+
+        let before_push = app.world().get::<Position>(target).unwrap().x;
+        assert!(before_push > 12.0 && before_push < 13.0);
+
+        // 이동 중인 대상의 현재 논리 칸 13을 찾아 14로 밉니다.
+        step_on(&mut app, owner);
+
+        assert_eq!(grid(&app, target), GridPosition::new(14, 0));
+
+        let runtime = app.world().get::<TransportRuntime>(target).unwrap();
+        assert_eq!(
+            runtime.remaining_steps,
+            StraightTransportBlock::MAX_CONTINUOUS_STEPS - 1,
+        );
+
+        // 다음 자체 이동 시점인 0.5초에 도달하기 전에 확인합니다.
+        for _ in 0..16 {
+            tick(&mut app);
+        }
+
+        assert_eq!(grid(&app, target), GridPosition::new(14, 0));
+        assert_eq!(
+            app.world().get::<Position>(target).unwrap().0,
+            Vec2::new(14.0, 0.0),
+        );
+    }
+
+    #[test]
+    fn push_pull_discards_requests_when_player_was_relocated() {
+        let (mut app, owner) = test_app("tp_push_o");
+        let target = push_pull_target(&app);
+
+        app.world_mut()
+            .write_message(ResolvedMovementInteraction::new(owner, owner));
+
+        step_on(&mut app, owner);
+        tick(&mut app);
+
+        assert_eq!(grid(&app, target), GridPosition::new(12, 0));
     }
 }

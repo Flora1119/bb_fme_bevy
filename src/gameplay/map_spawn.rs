@@ -1,8 +1,8 @@
 use super::{
     ChangeBlock, ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock, JumpBlock,
-    OneShotFunctionBlock, PlayerBall, SolidBlock, StarSwitchTrigger, StraightBlock,
-    StraightTransportBlock, SwitchControlledBlock, SwitchTrigger, TeleportEntrance, TeleportExit,
-    TransparentStar, ability_item_for_id, spike_has_solid_collider,
+    OneShotFunctionBlock, PlayerBall, PushPullAction, PushPullBlock, PushPullReach, SolidBlock,
+    StarSwitchTrigger, StraightBlock, StraightTransportBlock, SwitchControlledBlock, SwitchTrigger,
+    TeleportEntrance, TeleportExit, TransparentStar, ability_item_for_id, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -320,6 +320,34 @@ fn spawn_requested_map(
 
             "tp_st_a" => {
                 entity_commands.insert((SolidBlock, StraightTransportBlock::continuous()));
+            }
+
+            "tp_push_o" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    PushPullBlock::new(PushPullAction::Push, PushPullReach::OneCell),
+                ));
+            }
+
+            "tp_push_a" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    PushPullBlock::new(PushPullAction::Push, PushPullReach::ToLimit),
+                ));
+            }
+
+            "tp_pull_o" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    PushPullBlock::new(PushPullAction::Pull, PushPullReach::OneCell),
+                ));
+            }
+
+            "tp_pull_a" => {
+                entity_commands.insert((
+                    SolidBlock,
+                    PushPullBlock::new(PushPullAction::Pull, PushPullReach::ToLimit),
+                ));
             }
 
             _ => {}

@@ -1,6 +1,8 @@
 mod change;
 mod clock;
 mod jump;
+mod push_pull;
+mod push_pull_plan;
 mod spike;
 mod spike_death;
 mod star;
@@ -15,6 +17,8 @@ mod transport_motion;
 pub use change::*;
 pub use clock::*;
 pub use jump::*;
+pub use push_pull::*;
+pub use push_pull_plan::*;
 pub use spike::*;
 pub use spike_death::*;
 pub use star::*;
