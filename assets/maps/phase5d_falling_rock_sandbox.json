@@ -1,0 +1,221 @@
+{
+	"map_name": "phase5d_falling_rock_sandbox",
+	"author": "Guest",
+	"map_settings": {
+		"time_limit": 300.0,
+		"show_time_ranking": true,
+		"star_count": 1,
+		"size": { "width": 25, "height": 15 },
+		"tp1_exit": { "x": -1, "y": -1 },
+		"tp2_exit": { "x": -1, "y": -1 },
+		"portal1_positions": {
+			"a_px": -1,
+			"a_py": -1,
+			"b_px": -1,
+			"b_py": -1
+		},
+		"portal2_positions": {
+			"a_px": -1,
+			"a_py": -1,
+			"b_px": -1,
+			"b_py": -1
+		},
+		"sw_el": true,
+		"sw_b1": true,
+		"sw_b2": true
+	},
+	"blocks": [
+		{
+			"x": 2,
+			"y": 4,
+			"block": { "type": "item", "name": "ball", "dir": 0 }
+		},
+		{
+			"x": 23,
+			"y": 1,
+			"block": { "type": "item", "name": "star", "dir": 0 }
+		},
+
+		{
+			"x": 7,
+			"y": 10,
+			"block": { "type": "funcblock", "name": "fb_fr", "dir": 0 }
+		},
+		{
+			"x": 13,
+			"y": 10,
+			"block": { "type": "funcblock", "name": "fb_fr", "dir": 0 }
+		},
+		{
+			"x": 19,
+			"y": 10,
+			"block": { "type": "funcblock", "name": "fb_fr", "dir": 0 }
+		},
+
+		{
+			"x": 7,
+			"y": 3,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 13,
+			"y": 1,
+			"block": { "type": "block", "name": "b_o_half", "dir": 0 }
+		},
+
+		{
+			"x": 0,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 1,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 2,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 3,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 4,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 5,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 6,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 7,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 8,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 9,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 10,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 11,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 12,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 13,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 14,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 15,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 16,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 17,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 18,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 19,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 20,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 21,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 22,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 23,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		},
+		{
+			"x": 24,
+			"y": 0,
+			"block": { "type": "block", "name": "b_normal", "dir": 0 }
+		}
+	],
+	"block_options": [
+		{
+			"x": 7,
+			"y": 10,
+			"name": "fb_fr",
+			"options": [
+				{ "value_name": "Delay", "value": 0.0 },
+				{ "value_name": "Interval", "value": 1.5 }
+			]
+		},
+		{
+			"x": 13,
+			"y": 10,
+			"name": "fb_fr",
+			"options": [
+				{ "value_name": "Delay", "value": 0.5 },
+				{ "value_name": "Interval", "value": 1.0 }
+			]
+		},
+		{
+			"x": 19,
+			"y": 10,
+			"name": "fb_fr",
+			"options": [
+				{ "value_name": "Delay", "value": 1.0 },
+				{ "value_name": "Interval", "value": 2.0 }
+			]
+		}
+	]
+}

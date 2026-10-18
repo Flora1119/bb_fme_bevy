@@ -1,5 +1,8 @@
 mod change;
 mod clock;
+mod falling_rock;
+mod falling_rock_collision;
+mod falling_rock_runtime;
 mod jump;
 mod push_pull;
 mod push_pull_plan;
@@ -16,6 +19,9 @@ mod transport_motion;
 
 pub use change::*;
 pub use clock::*;
+pub use falling_rock::*;
+pub use falling_rock_collision::*;
+pub use falling_rock_runtime::*;
 pub use jump::*;
 pub use push_pull::*;
 pub use push_pull_plan::*;

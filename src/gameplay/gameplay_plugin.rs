@@ -1,8 +1,8 @@
 use super::{
-    ChangeBlockPlugin, ClockBlockPlugin, GameplayPhysicsPlugin, MapBoundaryPlugin, MapSpawnPlugin,
-    PlayRestartPlugin, PlaySessionPlugin, PlayerAbilityPlugin, PlayerControlPlugin,
-    SpikeDeathPlugin, StarCollectionPlugin, StarSwitchBlockPlugin, StraightTransportPlugin,
-    SwitchBlockPlugin, TeleportBlockPlugin,
+    ChangeBlockPlugin, ClockBlockPlugin, FallingRockPlugin, GameplayPhysicsPlugin,
+    MapBoundaryPlugin, MapSpawnPlugin, PlayRestartPlugin, PlaySessionPlugin, PlayerAbilityPlugin,
+    PlayerControlPlugin, SpikeDeathPlugin, StarCollectionPlugin, StarSwitchBlockPlugin,
+    StraightTransportPlugin, SwitchBlockPlugin, TeleportBlockPlugin,
 };
 use bevy::prelude::*;
 
@@ -27,5 +27,6 @@ impl Plugin for GameplayPlugin {
             PlayerAbilityPlugin,
             PlayerControlPlugin,
         ));
+        app.add_plugins(FallingRockPlugin);
     }
 }

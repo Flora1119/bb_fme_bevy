@@ -14,6 +14,9 @@ use std::collections::HashSet;
 
 pub struct StraightTransportPlugin;
 
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TransportAnimationSet;
+
 impl Plugin for StraightTransportPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PendingTransportSteps>()
@@ -26,6 +29,7 @@ impl Plugin for StraightTransportPlugin {
             .add_systems(
                 PhysicsSchedule,
                 animate_straight_transports
+                    .in_set(TransportAnimationSet)
                     .after(PhysicsStepSystems::First)
                     .after(PlaySessionSet::AdvanceTime)
                     .before(PhysicsStepSystems::BroadPhase),

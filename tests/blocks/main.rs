@@ -3,6 +3,7 @@ mod common;
 
 mod change_block;
 mod electric_switch;
+mod falling_rock;
 mod func_jump;
 mod func_static;
 mod func_straight;

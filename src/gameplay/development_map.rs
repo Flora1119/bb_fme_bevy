@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 const BLOCK_CONFIG: &str = include_str!("../../assets/config/block_assets_config.json");
 
-const DEVELOPMENT_MAP: &str = include_str!("../../assets/maps/phase5d_push_pull_sandbox.json");
+const DEVELOPMENT_MAP: &str = include_str!("../../assets/maps/phase5d_falling_rock_sandbox.json");
 
 pub struct DevelopmentMapPlugin;
 

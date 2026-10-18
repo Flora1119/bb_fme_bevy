@@ -1,8 +1,9 @@
 use super::{
-    ChangeBlock, ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock, JumpBlock,
-    OneShotFunctionBlock, PlayerBall, PushPullAction, PushPullBlock, PushPullReach, SolidBlock,
-    StarSwitchTrigger, StraightBlock, StraightTransportBlock, SwitchControlledBlock, SwitchTrigger,
-    TeleportEntrance, TeleportExit, TransparentStar, ability_item_for_id, spike_has_solid_collider,
+    ChangeBlock, ClockBlock, CollectibleStar, DeadlySpike, ElectricControlledBlock,
+    FallingRockSpawner, JumpBlock, OneShotFunctionBlock, PlayerBall, PushPullAction, PushPullBlock,
+    PushPullReach, SolidBlock, StarSwitchTrigger, StraightBlock, StraightTransportBlock,
+    SwitchControlledBlock, SwitchTrigger, TeleportEntrance, TeleportExit, TransparentStar,
+    ability_item_for_id, spike_has_solid_collider,
 };
 use crate::{
     block::{BlockCategory, BlockId},
@@ -209,6 +210,13 @@ fn spawn_requested_map(
 
             "star_empty" => {
                 entity_commands.insert((CollectibleStar, TransparentStar));
+            }
+
+            "fb_fr" => {
+                entity_commands.insert((
+                    FallingRockSpawner::from_options(&block.options),
+                    Visibility::Hidden,
+                ));
             }
 
             "fb_jump" => {
